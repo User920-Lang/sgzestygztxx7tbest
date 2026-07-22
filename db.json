@@ -1,11 +1,19 @@
 {
   "config": {
-    "name": "Gztxx7Backend",
+    "name": "sgzestygztxx7",
     "version": "1.0.0",
     "author": "@gztxx7",
     "maintenance": false,
     "hash": "GZTXX7-189jaiu-&B!(p093=2-0!#45v"
   },
-  "users": [""],
-  "bans": [""]
+  "users": [
+    {
+      "id": 0,
+      "deviceId": "76561198392450904",
+      "username": "<color=red>@gztxx7",
+      "gems": 676767,
+      "banned": false
+    }
+  ],
+  "bans": []
 }
