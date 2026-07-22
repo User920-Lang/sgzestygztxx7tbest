@@ -3,7 +3,6 @@ import cors from "cors";
 import bodyParser from "body-parser";
 import { Low } from "lowdb";
 import { JSONFile } from "lowdb/node";
-import { nanoid } from "nanoid";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -13,6 +12,10 @@ app.use(bodyParser.json());
 
 const db = new Low(new JSONFile("db.json"), {});
 await db.read();
+
+function generateNumericID() {
+  return Math.floor(100000 + Math.random() * 900000);
+}
 
 function getHash() {
   return process.env.SERVER_HASH || db.data.config?.hash || null;
@@ -75,7 +78,7 @@ app.get("/hash", (req, res) => {
 });
 
 app.get("/auth", (req, res) => {
-  const username = (req.query.user || "").trim().toLowerCase();
+  const queryUser = (req.query.user || "").trim().toLowerCase();
   const hash = (req.query.hash || "").trim();
 
   if (!validateHash(hash)) {
@@ -86,9 +89,10 @@ app.get("/auth", (req, res) => {
     return res.send("off");
   }
 
-  const isBanned = db.data.bans.some(
-    (b) => b.trim().toLowerCase() === username
-  );
+  const isBanned = db.data.bans.some((b) => {
+    const val = String(b).trim().toLowerCase();
+    return val === queryUser;
+  });
 
   if (isBanned) {
     return res.send("banned");
@@ -111,13 +115,19 @@ app.post("/user/login/", async (req, res) => {
   let user = db.data.users.find((u) => u.deviceId === deviceId);
 
   if (!user) {
+    let newId = generateNumericID();
+    while (db.data.users.some((u) => u.id === newId || u.userId === newId)) {
+      newId = generateNumericID();
+    }
+
     user = {
-      id: nanoid(),
+      id: newId,
+      userId: newId,
       deviceId,
       continent: getContinent(country),
-      username: "StumbleZesty" + nanoid(8),
+      username: "StumbleZesty " + newId,
       crowns: 0,
-      gems: 67676767,
+      gems: 0,
       trophys: 0,
       experience: 0,
       coins: 250,
@@ -130,9 +140,14 @@ app.post("/user/login/", async (req, res) => {
 
   const isBanned =
     user.banned ||
-    db.data.bans.some(
-      (b) => b.trim().toLowerCase() === user.username.trim().toLowerCase()
-    );
+    db.data.bans.some((b) => {
+      const val = String(b).trim().toLowerCase();
+      return (
+        val === String(user.id) ||
+        val === String(user.userId) ||
+        val === user.username.trim().toLowerCase()
+      );
+    });
 
   if (isBanned) {
     return res.json({ banned: true });
@@ -140,6 +155,7 @@ app.post("/user/login/", async (req, res) => {
 
   res.json({
     id: user.id,
+    userId: user.id,
     username: user.username,
     country: user.continent,
     trophys: user.trophys,
@@ -165,21 +181,7 @@ app.post("/user/update", async (req, res) => {
 
   const trimmed = username.trim();
 
-  if (trimmed.length < 4 || trimmed.length > 12) {
-    return res.status(400).json({ error: "username must be between 4 and 12 characters" });
-  }
-
   await db.read();
-
-  const nameExists = db.data.users.some(
-    (u) =>
-      u.deviceId !== deviceId &&
-      u.username.trim().toLowerCase() === trimmed.toLowerCase()
-  );
-
-  if (nameExists) {
-    return res.status(409).json({ error: "username already taken" });
-  }
 
   const user = db.data.users.find((u) => u.deviceId === deviceId);
 
@@ -192,6 +194,7 @@ app.post("/user/update", async (req, res) => {
 
   res.json({
     id: user.id,
+    userId: user.id,
     username: user.username,
     country: user.continent,
     trophys: user.trophys,
@@ -217,10 +220,6 @@ app.post("/user/updateusername", async (req, res) => {
 
   const trimmed = username.trim();
 
-  if (trimmed.length < 4 || trimmed.length > 12) {
-    return res.status(400).json({ error: "username must be between 4 and 12 characters" });
-  }
-
   await db.read();
 
   const user = db.data.users.find((u) => u.deviceId === deviceId);
@@ -234,22 +233,13 @@ app.post("/user/updateusername", async (req, res) => {
     return res.status(402).json({ error: "not enough gems" });
   }
 
-  const nameExists = db.data.users.some(
-    (u) =>
-      u.deviceId !== deviceId &&
-      u.username.trim().toLowerCase() === trimmed.toLowerCase()
-  );
-
-  if (nameExists) {
-    return res.status(409).json({ error: "username already taken" });
-  }
-
   user.username = trimmed;
   user.gems -= GEM_COST;
   scheduleWrite();
 
   res.json({
     id: user.id,
+    userId: user.id,
     username: user.username,
     country: user.continent,
     trophys: user.trophys,
@@ -262,25 +252,39 @@ app.post("/user/updateusername", async (req, res) => {
 });
 
 app.post("/admin/ban", async (req, res) => {
-  const { username, action } = req.body;
+  const { target, action } = req.body;
+  const queryTarget = target || req.body.username || req.body.id || req.body.userId;
 
-  if (!username || !["ban", "unban"].includes(action)) {
-    return res.status(400).json({ error: "username + action required" });
+  if (!queryTarget || !["ban", "unban"].includes(action)) {
+    return res.status(400).json({ error: "target + action required" });
   }
 
   await db.read();
 
-  const name = username.trim().toLowerCase();
+  const targetStr = String(queryTarget).trim().toLowerCase();
+
+  const userObj = db.data.users.find(
+    (u) =>
+      String(u.id) === targetStr ||
+      String(u.userId) === targetStr ||
+      u.username.trim().toLowerCase() === targetStr
+  );
 
   if (action === "ban") {
-    if (!db.data.bans.includes(name)) {
-      db.data.bans.push(name);
-      await db.write();
+    if (!db.data.bans.includes(targetStr)) {
+      db.data.bans.push(targetStr);
     }
+    if (userObj) {
+      userObj.banned = true;
+    }
+    await db.write();
     return res.json({ success: true });
   }
 
-  db.data.bans = db.data.bans.filter((b) => b !== name);
+  db.data.bans = db.data.bans.filter((b) => String(b).trim().toLowerCase() !== targetStr);
+  if (userObj) {
+    userObj.banned = false;
+  }
   await db.write();
   res.json({ success: true });
 });
