@@ -117,7 +117,7 @@ app.post("/user/login/", async (req, res) => {
       continent: getContinent(country),
       username: "PlayerZesty" + nanoid(8),
       crowns: 0,
-      gems: 500,
+      gems: 0,
       trophys: 0,
       experience: 0,
       coins: 250,
