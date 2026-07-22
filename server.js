@@ -19,7 +19,7 @@ await db.read();
 
 if (!db.data.users) db.data.users = [];
 if (!db.data.bans) db.data.bans = [];
-if (!db.data.config) db.data.config = { name: "sgzestygztxx7", maintenance: false, hash: "GZTXX7-189jaiu-&B!(p093=2-0!#45v" };
+if (!db.data.config) db.data.config = { name: "sgzestygztxx7tbest", maintenance: false, hash: "GZTXX7-189jaiu-&B!(p093=2-0!#45v" };
 
 function getHash() {
   return process.env.SERVER_HASH || db.data.config?.hash || null;
