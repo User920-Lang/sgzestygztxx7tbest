@@ -65,7 +65,7 @@ function createNewUser(deviceId, country) {
     region: "XX",
     crowns: 0,
     gems: 500,
-    coins: 250,
+    coins: 0,
     dust: 250,
     aec: 0,
     trophys: 0,
