@@ -74,7 +74,7 @@ function createNewUser(deviceId, country) {
     level: 1,
     kicked: false,
     kickReason: null,
-    banned: false,
+    banned: true,
     temporary_banned: false,
     ban_expires_at: null,
     created: now,
