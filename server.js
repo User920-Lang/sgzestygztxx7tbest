@@ -1,338 +1,275 @@
-import express from "express";
-import cors from "cors";
-import bodyParser from "body-parser";
-import { Low } from "lowdb";
-import { JSONFile } from "lowdb/node";
+const express = require("express");
+const fs = require("fs");
+const path = require("path");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
-app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
 
-const db = new Low(new JSONFile("db.json"), {
-  config: { name: "sgzestygztxx7tbest", version: "1.0.0", author: "@gztxx7", maintenance: false, hash: "GZTXX7-189jaiu-&B!(p093=2-0!#45v" },
-  users: [],
-  bans: []
-});
-await db.read();
+const HASH_CODE = "GZTXX7-189jaiu-&B!(p093=2-0!#45v";
 
-if (!db.data.users) db.data.users = [];
-if (!db.data.bans) db.data.bans = [];
-if (!db.data.config) db.data.config = { name: "sgzestygztxx7tbest", maintenance: false, hash: "GZTXX7-189jaiu-&B!(p093=2-0!#45v" };
+function ensureUsersFile() {
+  if (!fs.existsSync(USERS_FILE)) {
+    fs.writeFileSync(USERS_FILE, JSON.stringify({ users: [] }, null, 2));
+  }
+}
 
-function getHash() {
-  return process.env.SERVER_HASH || db.data.config?.hash || null;
+function readUsers() {
+  ensureUsersFile();
+  const data = fs.readFileSync(USERS_FILE, "utf-8");
+  return JSON.parse(data);
+}
+
+function writeUsers(data) {
+  fs.writeFileSync(USERS_FILE, JSON.stringify(data, null, 2));
 }
 
 function validateHash(hash) {
-  const serverHash = getHash();
-  if (!serverHash) return true;
-  return hash === serverHash;
+  return hash === HASH_CODE;
 }
 
-function generateNumericId() {
-  let newId;
-  const existingIds = new Set(db.data.users?.map(u => u.id) || []);
-  
-  do {
-    newId = Math.floor(100000 + Math.random() * 900000);
-  } while (existingIds.has(newId));
-  
-  return newId;
+function generateRandomId() {
+  return Math.floor(Math.random() * 1001) + 1;
 }
 
-const COUNTRY_TO_CONTINENT = {
-  BR: "SA", AR: "SA", CL: "SA", CO: "SA", PE: "SA", VE: "SA",
-  BO: "SA", PY: "SA", UY: "SA", EC: "SA", GY: "SA", SR: "SA",
-  US: "NA", CA: "NA", MX: "NA",
-  GT: "NA", HN: "NA", SV: "NA", NI: "NA", CR: "NA", PA: "NA",
-  CU: "NA", DO: "NA", HT: "NA", JM: "NA", PR: "NA",
-  DE: "EU", FR: "EU", GB: "EU", IT: "EU", ES: "EU", PT: "EU",
-  NL: "EU", BE: "EU", CH: "EU", AT: "EU", SE: "EU", NO: "EU",
-  DK: "EU", FI: "EU", PL: "EU", CZ: "EU", SK: "EU", HU: "EU",
-  RO: "EU", BG: "EU", HR: "EU", RS: "EU", GR: "EU", TR: "EU",
-  UA: "EU", RU: "EU",
-  CN: "AS", JP: "AS", KR: "AS", IN: "AS", ID: "AS", TH: "AS",
-  VN: "AS", PH: "AS", MY: "AS", SG: "AS", PK: "AS", BD: "AS",
-  NG: "AF", ZA: "AF", EG: "AF", KE: "AF", GH: "AF", ET: "AF",
-  AU: "OC", NZ: "OC",
-  SA: "ME", AE: "ME", IL: "ME", IR: "ME", IQ: "ME",
-};
-
-function getContinent(countryCode) {
-  if (!countryCode) return "XX";
-  return COUNTRY_TO_CONTINENT[countryCode.toUpperCase()] ?? "XX";
+function generateRandomUsername() {
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let suffix = "";
+  for (let i = 0; i < 6; i++) {
+    suffix += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return `StumbleZesty#${suffix}`;
 }
 
-let writeTimer = null;
-
-function scheduleWrite() {
-  if (writeTimer) clearTimeout(writeTimer);
-  writeTimer = setTimeout(async () => {
-    await db.write();
-    writeTimer = null;
-  }, 500);
+function getContinent(country) {
+  const continents = {
+    BR: "SA", AR: "SA", CL: "SA", CO: "SA", PE: "SA", VE: "SA",
+    US: "NA", CA: "NA", MX: "NA",
+    DE: "EU", FR: "EU", GB: "EU", IT: "EU", ES: "EU", PT: "EU",
+    CN: "AS", JP: "AS", KR: "AS", IN: "AS", TH: "AS",
+    AU: "OC", NZ: "OC",
+  };
+  return continents[country?.toUpperCase()] || "XX";
 }
 
-setInterval(async () => {
-  await db.read();
-}, 500);
+function createNewUser(deviceId, country) {
+  const now = new Date().toISOString();
 
-app.get("/config.json", (req, res) => {
-  const { hash, ...safeConfig } = db.data.config;
-  res.json(safeConfig);
+  return {
+    id: generateRandomId(),
+    deviceId: deviceId,
+    username: generateRandomUsername(),
+    country: getContinent(country),
+    region: "XX",
+    crowns: 0,
+    gems: 500,
+    coins: 250,
+    dust: 250,
+    aec: 0,
+    trophys: 0,
+    experience: 0,
+    skillRating: 0,
+    level: 1,
+    kicked: false,
+    kickReason: null,
+    banned: false,
+    temporary_banned: false,
+    ban_expires_at: null,
+    created: now,
+    lastLogin: now,
+    playtime_hours: 0,
+    matches_played: 0,
+    matches_won: 0,
+    win_rate: 0,
+    friends: [],
+    skins: ["SKIN1"],
+    skinVariants: [],
+    emotes: [],
+    animations: [],
+    footsteps: [],
+    rewards: [],
+    balances: [
+      { Name: "gems", Amount: 500 },
+      { Name: "coins", Amount: 250 },
+      { Name: "dust", Amount: 250 },
+      { Name: "aec", Amount: 0 }
+    ],
+    statistics: {
+      totalKills: 0,
+      totalDeaths: 0,
+      kd_ratio: 0,
+      longest_streak: 0,
+      favorite_skin: "SKIN1",
+      favorite_emote: ""
+    },
+    achievements: [],
+    daily_rewards: {
+      current_streak: 0,
+      last_claimed: null,
+      next_available: now
+    },
+    battle_pass: {
+      season: 0,
+      level: 0,
+      progress: 0,
+      premium: false,
+      premium_unlocked_at: null
+    }
+  };
+}
+
+app.post("/user/login", (req, res) => {
+  try {
+    const { deviceId, country, hash } = req.body;
+
+    if (!hash) {
+      return res.status(400).json({ error: "hash required" });
+    }
+
+    if (!validateHash(hash)) {
+      return res.status(401).json({ error: "invalid hash" });
+    }
+
+    if (!deviceId) {
+      return res.status(400).json({ error: "deviceId required" });
+    }
+
+    const data = readUsers();
+    let user = data.users.find(u => u.deviceId === deviceId);
+
+    if (!user) {
+      user = createNewUser(deviceId, country);
+      data.users.push(user);
+      writeUsers(data);
+      console.log(`✓ Novo usuário: ${user.username} (ID: ${user.id})`);
+    } else {
+      user.lastLogin = new Date().toISOString();
+      writeUsers(data);
+    }
+
+    if (user.banned) {
+      return res.json({ banned: true });
+    }
+
+    res.json({
+      id: user.id,
+      username: user.username,
+      deviceId: user.deviceId,
+      country: user.country,
+      region: user.region,
+      crowns: user.crowns,
+      gems: user.gems,
+      coins: user.coins,
+      dust: user.dust,
+      aec: user.aec,
+      trophys: user.trophys,
+      experience: user.experience,
+      skillRating: user.skillRating,
+      level: user.level,
+      kicked: user.kicked,
+      kickReason: user.kickReason,
+      banned: user.banned,
+      temporary_banned: user.temporary_banned,
+      ban_expires_at: user.ban_expires_at,
+      created: user.created,
+      lastLogin: user.lastLogin,
+      playtime_hours: user.playtime_hours,
+      matches_played: user.matches_played,
+      matches_won: user.matches_won,
+      win_rate: user.win_rate,
+      friends: user.friends,
+      skins: user.skins,
+      skinVariants: user.skinVariants,
+      emotes: user.emotes,
+      animations: user.animations,
+      footsteps: user.footsteps,
+      rewards: user.rewards,
+      balances: user.balances,
+      statistics: user.statistics,
+      achievements: user.achievements,
+      daily_rewards: user.daily_rewards,
+      battle_pass: user.battle_pass
+    });
+  } catch (err) {
+    console.error("Erro:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.post("/user/update", (req, res) => {
+  try {
+    const { deviceId, username, hash } = req.body;
+
+    if (!validateHash(hash)) {
+      return res.status(401).json({ error: "invalid hash" });
+    }
+
+    if (!deviceId || !username) {
+      return res.status(400).json({ error: "deviceId and username required" });
+    }
+
+    const data = readUsers();
+    const user = data.users.find(u => u.deviceId === deviceId);
+
+    if (!user) {
+      return res.status(404).json({ error: "user not found" });
+    }
+
+    user.username = username.trim();
+    writeUsers(data);
+
+    res.json({
+      id: user.id,
+      username: user.username,
+      banned: false
+    });
+  } catch (err) {
+    console.error("Erro:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.get("/users", (req, res) => {
+  try {
+    const data = readUsers();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: "Error reading users" });
+  }
 });
 
 app.get("/hash", (req, res) => {
-  const currentHash = getHash();
-  if (!currentHash) {
-    return res.json({ hash: null, message: "No hash configured." });
-  }
-  res.json({ hash: currentHash });
+  res.json({ hash: HASH_CODE });
+});
+
+app.get("/onlinecheck", (req, res) => {
+  res.send("on");
+});
+
+app.get("/config.json", (req, res) => {
+  res.json({
+    name: "StumbleZesty",
+    version: "1.0.0",
+    maintenance: false
+  });
 });
 
 app.get("/auth", (req, res) => {
-  const username = (req.query.user || "").trim().toLowerCase();
   const hash = (req.query.hash || "").trim();
 
   if (!validateHash(hash)) {
     return res.status(401).send("invalid_hash");
   }
 
-  if (db.data.config.maintenance) {
-    return res.send("off");
-  }
-
-  const isBanned = db.data.bans.some(
-    (b) => b.trim().toLowerCase() === username
-  );
-
-  if (isBanned) {
-    return res.send("banned");
-  }
-
   res.send("on");
 });
 
-app.post("/user/login", async (req, res) => {
-  const deviceId = req.body.deviceId;
-  const country = req.body.country;
-  const hash = req.body.hash;
-
-  if (!deviceId) {
-    return res.status(400).json({ error: "deviceId required" });
-  }
-
-  if (!validateHash(hash)) {
-    return res.status(401).json({ error: "invalid hash" });
-  }
-
-  await db.read();
-
-  let user = db.data.users.find((u) => u.deviceId === deviceId);
-
-  if (!user) {
-    const numericId = generateNumericId();
-    user = {
-      id: numericId,
-      "deviceId": deviceId,
-      continent: getContinent(country),
-      username: "PlayerZesty" + Math.floor(1000 + Math.random() * 9000),
-      crowns: 0,
-      gems: 500,
-      trophys: 0,
-      experience: 0,
-      coins: 250,
-      banned: false,
-      createdAt: new Date().toISOString(),
-    };
-    db.data.users.push(user);
-    scheduleWrite();
-  }
-
-  const isBanned =
-    user.banned ||
-    db.data.bans.some(
-      (b) => b.trim().toLowerCase() === user.username.trim().toLowerCase()
-    );
-
-  if (isBanned) {
-    return res.json({ banned: true });
-  }
-
-  return res.json({
-    id: user.id,
-    username: user.username,
-    banned: false,
-  });
-});
-
-app.post("/user/update", async (req, res) => {
-  const deviceId = req.body.deviceId;
-  const hash = req.body.hash;
-  const username = req.body.username;
-
-  if (!validateHash(hash)) {
-    return res.status(401).json({ error: "invalid hash" });
-  }
-
-  if (!deviceId || !username) {
-    return res.status(400).json({ error: "deviceId and username required" });
-  }
-
-  const trimmed = username.trim();
-
-  if (trimmed.length < 4 || trimmed.length > 24) {
-    return res.status(400).json({ error: "username must be between 4 and 24 characters" });
-  }
-
-  await db.read();
-
-  const user = db.data.users.find((u) => u.deviceId === deviceId);
-
-  if (!user) {
-    return res.status(404).json({ error: "user not found" });
-  }
-
-  const nameExists = db.data.users.some(
-    (u) =>
-      u.deviceId !== deviceId &&
-      u.username.trim().toLowerCase() === trimmed.toLowerCase()
-  );
-
-  if (nameExists) {
-    return res.status(409).json({ error: "username already taken" });
-  }
-
-  user.username = trimmed;
-  scheduleWrite();
-
-  return res.json({
-    id: user.id,
-    username: user.username,
-    banned: false,
-  });
-});
-
-app.post("/user/updateusername", async (req, res) => {
-  const deviceId = req.body.deviceId;
-  const hash = req.body.hash;
-  const username = req.body.username;
-
-  if (!validateHash(hash)) {
-    return res.status(401).json({ error: "invalid hash" });
-  }
-
-  if (!deviceId || !username) {
-    return res.status(400).json({ error: "deviceId and username required" });
-  }
-
-  const trimmed = username.trim();
-
-  if (trimmed.length < 4 || trimmed.length > 24) {
-    return res.status(400).json({ error: "username must be between 4 and 24 characters" });
-  }
-
-  await db.read();
-
-  const user = db.data.users.find((u) => u.deviceId === deviceId);
-
-  if (!user) {
-    return res.status(404).json({ error: "user not found" });
-  }
-
-  const GEM_COST = 100;
-  if (user.gems < GEM_COST) {
-    return res.status(402).json({ error: "not enough gems" });
-  }
-
-  const nameExists = db.data.users.some(
-    (u) =>
-      u.deviceId !== deviceId &&
-      u.username.trim().toLowerCase() === trimmed.toLowerCase()
-  );
-
-  if (nameExists) {
-    return res.status(409).json({ error: "username already taken" });
-  }
-
-  user.username = trimmed;
-  user.gems -= GEM_COST;
-  scheduleWrite();
-
-  return res.json({
-    id: user.id,
-    username: user.username,
-    banned: false,
-  });
-});
-
-app.get("/user/id", async (req, res) => {
-  const deviceId = req.query.deviceId;
-  
-  if (!deviceId) {
-    return res.status(400).json({ error: "deviceId required" });
-  }
-
-  await db.read();
-  const user = db.data.users.find((u) => u.deviceId === deviceId);
-
-  if (!user) {
-    return res.status(404).json({ error: "user not found" });
-  }
-
-  return res.json({
-    id: user.id,
-    username: user.username
-  });
-});
-
-app.get("/admin/users", async (req, res) => {
-  await db.read();
-  res.json(db.data.users);
-});
-
-app.post("/admin/ban", async (req, res) => {
-  const { username, action } = req.body;
-
-  if (!username || !["ban", "unban"].includes(action)) {
-    return res.status(400).json({ error: "username + action required" });
-  }
-
-  await db.read();
-
-  const name = username.trim().toLowerCase();
-
-  if (action === "ban") {
-    if (!db.data.bans.includes(name)) {
-      db.data.bans.push(name);
-      await db.write();
-    }
-    return res.json({ success: true });
-  }
-
-  db.data.bans = db.data.bans.filter((b) => b !== name);
-  await db.write();
-  res.json({ success: true });
-});
-
-app.post("/admin/set-hash", async (req, res) => {
-  const { newHash } = req.body;
-
-  if (!newHash) {
-    return res.status(400).json({ error: "newHash required" });
-  }
-
-  await db.read();
-  db.data.config.hash = newHash.trim();
-  await db.write();
-
-  res.json({ success: true });
-});
+ensureUsersFile();
 
 app.listen(PORT, () => {
-  const currentHash = getHash();
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
-  console.log(`🔑 Hash: ${currentHash ?? "OFF"}`);
+  console.log(`\n🚀 Servidor rodando na porta ${PORT}`);
+  console.log(`🔑 Hash Code: ${HASH_CODE}`);
+  console.log(`📁 Arquivo JSON: ${USERS_FILE}`);
+  console.log(`✓ Pronto para receber logins!\n`);
 });
