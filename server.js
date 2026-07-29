@@ -7,6 +7,7 @@ const PORT = process.env.PORT || 8080;
 
 app.use(express.json());
 
+const USERS_FILE = path.join(__dirname, "userslogin.json");
 const HASH_CODE = "GZTXX7-189jaiu-&B!(p093=2-0!#45v";
 
 function ensureUsersFile() {
@@ -152,6 +153,7 @@ app.post("/user/login", (req, res) => {
       return res.json({ banned: true });
     }
 
+    // Retornar EXATAMENTE o que o C# espera
     res.json({
       id: user.id,
       username: user.username,
