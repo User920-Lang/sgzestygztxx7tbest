@@ -3,7 +3,6 @@
   "version": "1.1.0",
   "description": "Backend com sistema de Hash Code para autenticação.",
   "main": "server.js",
-  "type": "module",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js"
@@ -21,4 +20,4 @@
   "keywords": [],
   "author": "@gztxx7",
   "license": "MIT"
-}
+} 
