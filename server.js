@@ -152,8 +152,7 @@ app.post("/user/login", (req, res) => {
     if (user.banned) {
       return res.json({ banned: true });
     }
-
-    // Retornar EXATAMENTE o que o C# espera
+    
     res.json({
       id: user.id,
       username: user.username,
