@@ -5,8 +5,8 @@ const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 const HASH_CODE = "GZTXX7-189jaiu-&B!(p093=2-0!#45v";
 const USERS_DIR = path.join(__dirname, "users");
@@ -16,7 +16,7 @@ if (!fs.existsSync(USERS_DIR)) {
 }
 
 function generateRandomId() {
-  return Math.floor(Math.random() * 1001) + 1;
+  return Math.floor(Math.random() * 899999) + 100000;
 }
 
 function generateRandomSuffix(length = 4) {
@@ -36,7 +36,7 @@ function loadUserTemplate() {
   
   return {
     User: {
-      Id: 0,
+      Id: generateRandomId(),
       Username: "",
       Name: "",
       DeviceId: "",
@@ -51,8 +51,8 @@ function loadUserTemplate() {
       SkillRating: 0,
       Level: 1,
       Banned: false,
-      Created: "",
-      LastLogin: "",
+      Created: new Date().toISOString(),
+      LastLogin: new Date().toISOString(),
       Skins: ["SKIN1"],
       SkinVariants: [],
       Emotes: [],
@@ -95,7 +95,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// 1. Rota Auth
 app.get("/auth", (req, res) => {
   res.setHeader("Content-Type", "text/plain");
   const { hash } = req.query;
@@ -105,7 +104,6 @@ app.get("/auth", (req, res) => {
   return res.status(403).send("off");
 });
 
-// 2. Rota Shared Ajustada
 app.get(["/shared/*", "/shared"], (req, res) => {
   res.setHeader("Content-Type", "application/json");
 
@@ -114,36 +112,19 @@ app.get(["/shared/*", "/shared"], (req, res) => {
   if (fs.existsSync(sharedPath)) {
     try {
       const rawData = fs.readFileSync(sharedPath, "utf8");
-      const parsedData = JSON.parse(rawData);
-
-      // Se o Shared.json já possuir a chave "Shared" na raiz
-      if (parsedData.Shared) {
-        return res.status(200).send(JSON.stringify(parsedData));
-      }
-
-      // Se não tiver, envelopa no formato padrão
-      return res.status(200).send(JSON.stringify({
-        Shared: parsedData,
-        Hash: "shared_ok_hash"
-      }));
-    } catch (err) {
-      console.error("[SHARED ERROR]:", err);
-    }
+      return res.status(200).send(rawData);
+    } catch (err) {}
   }
 
-  return res.status(200).send(JSON.stringify({
-    Shared: { Version: 1 },
-    Hash: "shared_ok_hash"
-  }));
+  return res.status(200).send(JSON.stringify({ Version: 1 }));
 });
 
-// 3. Login
 app.post("/user/login", (req, res) => {
   res.setHeader("Content-Type", "application/json");
 
   try {
     const { DeviceId, deviceId } = req.body || {};
-    const activeDeviceId = DeviceId || deviceId || "default_device";
+    const activeDeviceId = DeviceId || deviceId || "device_" + generateRandomSuffix(8);
 
     let userData = getUserFromFile(activeDeviceId);
 
@@ -157,16 +138,17 @@ app.post("/user/login", (req, res) => {
       userData.User.Username = randomUsername;
       userData.User.Name = randomUsername;
       userData.User.DeviceId = activeDeviceId;
-      userData.User.Token = "session_token_" + Date.now();
+      userData.User.Token = "session_" + Date.now();
       userData.User.Country = "XX";
       userData.User.Region = "XX";
       userData.User.Created = now;
       userData.User.LastLogin = now;
+      
+      saveUserToFile(userData);
     } else {
       userData.User.LastLogin = new Date().toISOString();
+      saveUserToFile(userData);
     }
-
-    saveUserToFile(userData);
 
     return res.status(200).send(JSON.stringify(userData));
   } catch (err) {
@@ -174,7 +156,6 @@ app.post("/user/login", (req, res) => {
   }
 });
 
-// 4. Nickname e Perfis
 app.post(["/user/update", "/user/updateusername"], (req, res) => {
   res.setHeader("Content-Type", "application/json");
   const { DeviceId, deviceId, Username, username } = req.body || {};
@@ -191,7 +172,6 @@ app.post(["/user/update", "/user/updateusername"], (req, res) => {
   return res.status(200).send(JSON.stringify(userData || { success: true }));
 });
 
-// 5. Servidores
 app.get(["/servers", "/servers/*"], (req, res) => {
   res.setHeader("Content-Type", "application/json");
   return res.status(200).send(JSON.stringify({
@@ -201,7 +181,6 @@ app.get(["/servers", "/servers/*"], (req, res) => {
   }));
 });
 
-// 6. Round Finish
 app.post(["/round/finish", "/round/finish/*", "/round/finishv2/*"], (req, res) => {
   res.setHeader("Content-Type", "application/json");
   return res.status(200).send(JSON.stringify({ success: true, reward: {} }));
@@ -212,7 +191,6 @@ app.post("/round/check", (req, res) => {
   return res.status(200).send(JSON.stringify({ success: true, valid: true }));
 });
 
-// 7. Loja, Economia e BattlePass
 app.get(["/economy/*", "/user/refresheconomy", "/battlepass/*"], (req, res) => {
   res.setHeader("Content-Type", "application/json");
   return res.status(200).send(JSON.stringify({ success: true }));
@@ -223,7 +201,6 @@ app.post(["/economy/*", "/battlepass/*"], (req, res) => {
   return res.status(200).send(JSON.stringify({ success: true }));
 });
 
-// 8. Ranking e Checagens
 app.get("/highscore/*", (req, res) => {
   res.setHeader("Content-Type", "application/json");
   return res.status(200).send(JSON.stringify({ Ranks: [], Highscores: [] }));
