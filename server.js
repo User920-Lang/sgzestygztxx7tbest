@@ -19,7 +19,7 @@ function generateRandomId() {
   return Math.floor(Math.random() * 1001) + 1;
 }
 
-function generateRandomSuffix(length = 8) {
+function generateRandomSuffix(length = 4) {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let result = "";
   for (let i = 0; i < length; i++) {
@@ -88,14 +88,15 @@ function getUserFromFile(deviceId) {
   return null;
 }
 
+// Headers Globais
 app.use((req, res, next) => {
-  res.setHeader("Content-Type", "application/json");
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
   next();
 });
 
+// 1. Rota de Autenticação /auth
 app.get("/auth", (req, res) => {
   res.setHeader("Content-Type", "text/plain");
   const { hash } = req.query;
@@ -105,7 +106,42 @@ app.get("/auth", (req, res) => {
   return res.status(403).send("off");
 });
 
+// 2. Rota do Shared (Lê o Shared.json e envelopa para a Unity)
+app.get("/shared/*", (req, res) => {
+  res.setHeader("Content-Type", "application/json");
+
+  const sharedPath = path.join(__dirname, "Shared.json");
+
+  if (fs.existsSync(sharedPath)) {
+    try {
+      const rawData = fs.readFileSync(sharedPath, "utf8");
+      const parsedData = JSON.parse(rawData);
+
+      return res.status(200).json({
+        Shared: {
+          Version: 1,
+          Data: parsedData
+        },
+        Hash: "shared_ok_hash_123"
+      });
+    } catch (err) {
+      console.error("[SHARED ERROR] Erro ao processar Shared.json:", err);
+    }
+  }
+
+  return res.status(200).json({
+    Shared: {
+      Version: 1,
+      Data: {}
+    },
+    Hash: "shared_ok_hash"
+  });
+});
+
+// 3. Login
 app.post("/user/login", (req, res) => {
+  res.setHeader("Content-Type", "application/json");
+
   try {
     const { DeviceId, deviceId } = req.body || {};
     const activeDeviceId = DeviceId || deviceId || "default_device";
@@ -138,7 +174,9 @@ app.post("/user/login", (req, res) => {
   }
 });
 
+// 4. Nickname e Perfis
 app.post(["/user/update", "/user/updateusername"], (req, res) => {
+  res.setHeader("Content-Type", "application/json");
   const { DeviceId, deviceId, Username, username } = req.body || {};
   const activeDeviceId = DeviceId || deviceId || "default_device";
   const newName = Username || username;
@@ -153,7 +191,9 @@ app.post(["/user/update", "/user/updateusername"], (req, res) => {
   return res.status(200).json(userData || { success: true });
 });
 
+// 5. Servidores
 app.get(["/servers", "/servers/region/*"], (req, res) => {
+  res.setHeader("Content-Type", "application/json");
   return res.status(200).json({
     Servers: [
       { Name: "XX", Region: "XX", Ping: 20 }
@@ -161,57 +201,41 @@ app.get(["/servers", "/servers/region/*"], (req, res) => {
   });
 });
 
-app.get("/shared/*", (req, res) => {
-  res.setHeader("Content-Type", "application/json");
-  return res.status(200).json({
-    Shared: {
-      Version: 1,
-      Data: {
-        DisableShop: false,
-        DisableCustomParties: false,
-        DisableFriends: false,
-        Maintenance: false,
-        RoundTime: 180,
-        MaxPlayers: 32
-      }
-    },
-    Hash: "shared_ok_hash"
-  });
-});
-
+// 6. Finim da Partida / Round Finish
 app.post(["/round/finish", "/round/finish/*", "/round/finishv2/*"], (req, res) => {
+  res.setHeader("Content-Type", "application/json");
   return res.status(200).json({ success: true, reward: {} });
 });
 
 app.post("/round/check", (req, res) => {
+  res.setHeader("Content-Type", "application/json");
   return res.status(200).json({ success: true, valid: true });
 });
 
-app.get(["/economy/*", "/user/refresheconomy"], (req, res) => {
+// 7. Loja, Economia e BattlePass
+app.get(["/economy/*", "/user/refresheconomy", "/battlepass/*"], (req, res) => {
+  res.setHeader("Content-Type", "application/json");
   return res.status(200).json({ success: true });
 });
 
-app.post("/economy/*", (req, res) => {
+app.post(["/economy/*", "/battlepass/*"], (req, res) => {
+  res.setHeader("Content-Type", "application/json");
   return res.status(200).json({ success: true });
 });
 
-app.get(["/battlepass/*"], (req, res) => {
-  return res.status(200).json({ success: true });
-});
-
-app.post(["/battlepass/*"], (req, res) => {
-  return res.status(200).json({ success: true });
-});
-
+// 8. Ranking, Social e Checagens
 app.get("/highscore/*", (req, res) => {
+  res.setHeader("Content-Type", "application/json");
   return res.status(200).json({ Ranks: [], Highscores: [] });
 });
 
 app.get(["/user/profile/*", "/user/news", "/user/friend/*"], (req, res) => {
+  res.setHeader("Content-Type", "application/json");
   return res.status(200).json({ success: true });
 });
 
 app.post(["/user/search", "/user/linkgoogle", "/user/linkfacebook", "/user/cheat"], (req, res) => {
+  res.setHeader("Content-Type", "application/json");
   return res.status(200).json({ success: true });
 });
 
@@ -221,5 +245,5 @@ app.get(["/onlinecheck", "/tests/*"], (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server fully supporting Backend.cs on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
