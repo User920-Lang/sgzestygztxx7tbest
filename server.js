@@ -7,43 +7,29 @@ app.use(express.json());
 const HASH_CODE = "GZTXX7-189jaiu-&B!(p093=2-0!#45v";
 const users = new Map();
 
-function validateHash(hash) {
-  return hash === HASH_CODE;
-}
-
 function generateRandomId() {
   return Math.floor(Math.random() * 899999) + 100000;
 }
 
 function generateRandomUsername() {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let suffix = "";
   for (let i = 0; i < 5; i++) {
     suffix += chars[Math.floor(Math.random() * chars.length)];
   }
-  return `StumbleZesty#${suffix.toUpperCase()}`;
+  return `StumbleZesty#${suffix}`;
 }
 
-function getContinent(country) {
-  const continents = {
-    BR: "SA", AR: "SA", CL: "SA", CO: "SA", PE: "SA", VE: "SA",
-    US: "NA", CA: "NA", MX: "NA",
-    DE: "EU", FR: "EU", GB: "EU", IT: "EU", ES: "EU", PT: "EU",
-    CN: "AS", JP: "AS", KR: "AS", IN: "AS", TH: "AS",
-    AU: "OC", NZ: "OC",
-  };
-  return continents[country?.toUpperCase()] || "XX";
-}
-
-function createNewUser(deviceId, country) {
+function createNewUser(deviceId) {
   const now = new Date().toISOString();
 
   return {
     Id: generateRandomId(),
-    DeviceId: deviceId,
     Username: generateRandomUsername(),
-    Country: getContinent(country),
-    Region: "XX",
+    DeviceId: deviceId,
+    Token: "session_token_" + Date.now(),
+    Country: "SA",
+    Region: "SA",
     Crowns: 0,
     Gems: 500,
     Coins: 250,
@@ -54,147 +40,84 @@ function createNewUser(deviceId, country) {
     Banned: false,
     Created: now,
     LastLogin: now,
-    Playtime_hours: 0,
-    Matches_played: 0,
-    Matches_won: 0,
-    Win_rate: 0,
-    Friends: [],
     Skins: ["SKIN1"],
     Balances: [
       { Name: "gems", Amount: 500 },
       { Name: "coins", Amount: 250 },
       { Name: "dust", Amount: 250 }
-    ],
-    Statistics: {
-      totalKills: 0,
-      totalDeaths: 0,
-      kd_ratio: 0
-    }
+    ]
   };
 }
+
+// ================= ROTA DE LOGIN (Corrigida sem exigi hash no body) =================
 app.post("/user/login", (req, res) => {
   try {
-    const { deviceId, country, hash } = req.body;
+    const { DeviceId, deviceId } = req.body;
+    const activeDeviceId = DeviceId || deviceId;
 
-    if (!hash) {
-      return res.status(400).json({ error: "hash required" });
+    if (!activeDeviceId) {
+      return res.status(400).json({ error: "DeviceId is required" });
     }
 
-    if (!validateHash(hash)) {
-      return res.status(401).json({ error: "invalid hash" });
-    }
-
-    if (!deviceId) {
-      return res.status(400).json({ error: "deviceId required" });
-    }
-
-    let user = users.get(deviceId);
+    let user = users.get(activeDeviceId);
 
     if (!user) {
-      user = createNewUser(deviceId, country);
-      users.set(deviceId, user);
-      console.log(`✓ Novo usuário criado: ${user.Username} (ID: ${user.Id})`);
+      user = createNewUser(activeDeviceId);
+      users.set(activeDeviceId, user);
+      console.log(`[LOGIN] Novo usuário criado: ${user.Username} (ID: ${user.Id})`);
     } else {
       user.LastLogin = new Date().toISOString();
+      console.log(`[LOGIN] Usuário logado: ${user.Username}`);
     }
 
-    if (user.Banned) {
-      return res.json({ banned: true });
-    }
+    // Retorna envelopado em "User" exatamente como o Backend.cs exige
     res.json({
-      User: user
+      User: user,
+      RewardHash: "hash_ok"
     });
   } catch (err) {
-    console.error("Erro no login:", err);
+    console.error("Erro no /user/login:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
-app.post("/round/finish", (req, res) => {
-  try {
-    const { deviceId, hash, kills, deaths, experience_gained, gems_earned, coins_earned, match_won } = req.body;
 
-    if (!validateHash(hash)) {
-      return res.status(401).json({ error: "invalid hash" });
+// ================= ROTAS PARA CORRIGIR O 'Shared update error!' =================
+app.get("/shared/:version/:type", (req, res) => {
+  res.json({
+    Shared: {
+      Version: req.params.version || 0,
+      Data: {}
     }
-
-    if (!deviceId) {
-      return res.status(400).json({ error: "deviceId required" });
-    }
-
-    let user = users.get(deviceId);
-
-    if (!user) {
-      return res.status(404).json({ error: "user not found" });
-    }
-
-    user.Statistics.totalKills += kills || 0;
-    user.Statistics.totalDeaths += deaths || 0;
-    user.Experience += experience_gained || 0;
-    user.Gems += gems_earned || 0;
-    user.Coins += coins_earned || 0;
-
-    const gemsBalance = user.Balances.find(b => b.Name === "gems");
-    const coinsBalance = user.Balances.find(b => b.Name === "coins");
-    if (gemsBalance) gemsBalance.Amount = user.Gems;
-    if (coinsBalance) coinsBalance.Amount = user.Coins;
-
-    user.Matches_played += 1;
-    if (match_won) {
-      user.Matches_won += 1;
-      user.Crowns += 1; 
-    }
-
-    user.Win_rate = ((user.Matches_won / user.Matches_played) * 100).toFixed(1);
-    user.Level = Math.floor(user.Experience / 1000) + 1;
-
-    console.log(`✓ ${user.Username} finalizou partida - Kills: ${kills}`);
-
-    res.json({
-      success: true,
-      User: user
-    });
-  } catch (err) {
-    console.error("Erro no finish round:", err);
-    res.status(500).json({ error: "Internal server error" });
-  }
+  });
 });
+
+app.get("/servers", (req, res) => {
+  res.json({
+    Servers: [
+      { Name: "SA", Region: "SA", Ping: 20 }
+    ]
+  });
+});
+
+app.get("/servers/region/:region", (req, res) => {
+  res.json({
+    Servers: [
+      { Name: req.params.region, Region: req.params.region, Ping: 20 }
+    ]
+  });
+});
+
+// ================= DEMAIS ROTAS =================
 app.post("/user/update", (req, res) => {
   try {
-    const { deviceId, username, hash } = req.body;
+    const { DeviceId, deviceId, Username, username } = req.body;
+    const id = DeviceId || deviceId;
+    const newName = Username || username;
 
-    if (!validateHash(hash)) {
-      return res.status(401).json({ error: "invalid hash" });
-    }
+    const user = users.get(id);
+    if (!user) return res.status(404).json({ error: "user not found" });
 
-    if (!deviceId || !username) {
-      return res.status(400).json({ error: "deviceId and username required" });
-    }
-
-    const user = users.get(deviceId);
-
-    if (!user) {
-      return res.status(404).json({ error: "user not found" });
-    }
-
-    user.Username = username.trim();
-
-    res.json({
-      User: user
-    });
-  } catch (err) {
-    console.error("Erro no update:", err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-app.get("/user/:deviceId", (req, res) => {
-  try {
-    const { deviceId } = req.params;
-    const user = users.get(deviceId);
-
-    if (!user) {
-      return res.status(404).json({ error: "user not found" });
-    }
+    if (newName) user.Username = newName;
 
     res.json({ User: user });
   } catch (err) {
@@ -202,43 +125,9 @@ app.get("/user/:deviceId", (req, res) => {
   }
 });
 
-app.get("/users", (req, res) => {
-  try {
-    const userList = Array.from(users.values());
-    res.json({ users: userList, total: userList.length });
-  } catch (err) {
-    res.status(500).json({ error: "Error reading users" });
-  }
-});
-
-app.get("/hash", (req, res) => {
-  res.json({ hash: HASH_CODE });
-});
-
-app.get("/onlinecheck", (req, res) => {
-  res.send("on");
-});
-
-app.get("/config.json", (req, res) => {
-  res.json({
-    name: "StumbleZesty",
-    version: "1.0.0",
-    maintenance: false
-  });
-});
-
-app.get("/auth", (req, res) => {
-  const hash = (req.query.hash || "").trim();
-
-  if (!validateHash(hash)) {
-    return res.status(401).send("invalid_hash");
-  }
-
-  res.send("on");
-});
+app.get("/onlinecheck", (req, res) => res.send("on"));
+app.get("/config.json", (req, res) => res.json({ name: "StumbleZesty", version: "1.0.0", maintenance: false }));
 
 app.listen(PORT, () => {
-  console.log(`\n🚀 Servidor rodando na porta ${PORT}`);
-  console.log(`🔑 Hash Code: ${HASH_CODE}`);
-  console.log(`📊 Dados em MEMÓRIA\n`);
+  console.log(`\n🚀 Servidor Backend rodando na porta ${PORT}`);
 });
