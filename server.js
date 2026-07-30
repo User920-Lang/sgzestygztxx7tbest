@@ -5,8 +5,8 @@ const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 const HASH_CODE = "GZTXX7-189jaiu-&B!(p093=2-0!#45v";
 const USERS_DIR = path.join(__dirname, "users");
@@ -88,7 +88,6 @@ function getUserFromFile(deviceId) {
   return null;
 }
 
-// Headers Globais
 app.use((req, res, next) => {
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   res.setHeader("Pragma", "no-cache");
@@ -96,7 +95,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// 1. Rota de Autenticação /auth
+// 1. Rota Auth
 app.get("/auth", (req, res) => {
   res.setHeader("Content-Type", "text/plain");
   const { hash } = req.query;
@@ -106,7 +105,7 @@ app.get("/auth", (req, res) => {
   return res.status(403).send("off");
 });
 
-// 2. Rota do Shared (Garante envio estruturado para o client)
+// 2. Rota Shared Ajustada
 app.get(["/shared/*", "/shared"], (req, res) => {
   res.setHeader("Content-Type", "application/json");
 
@@ -117,27 +116,28 @@ app.get(["/shared/*", "/shared"], (req, res) => {
       const rawData = fs.readFileSync(sharedPath, "utf8");
       const parsedData = JSON.parse(rawData);
 
-      const payload = {
-        Shared: {
-          Version: 1,
-          Data: parsedData
-        },
-        Hash: "shared_ok_hash_123"
-      };
+      // Se o Shared.json já possuir a chave "Shared" na raiz
+      if (parsedData.Shared) {
+        return res.status(200).send(JSON.stringify(parsedData));
+      }
 
-      return res.status(200).send(JSON.stringify(payload));
+      // Se não tiver, envelopa no formato padrão
+      return res.status(200).send(JSON.stringify({
+        Shared: parsedData,
+        Hash: "shared_ok_hash"
+      }));
     } catch (err) {
       console.error("[SHARED ERROR]:", err);
     }
   }
 
   return res.status(200).send(JSON.stringify({
-    Shared: { Version: 1, Data: {} },
+    Shared: { Version: 1 },
     Hash: "shared_ok_hash"
   }));
 });
 
-// 3. Login (/user/login) - Resposta compacta obrigatória para Backend.cs
+// 3. Login
 app.post("/user/login", (req, res) => {
   res.setHeader("Content-Type", "application/json");
 
@@ -168,9 +168,7 @@ app.post("/user/login", (req, res) => {
 
     saveUserToFile(userData);
 
-    // IMPORTANTE: Envia sem formatação/espaços no início para passar no StartsWith("{\"User\":")
-    const jsonString = JSON.stringify(userData);
-    return res.status(200).send(jsonString);
+    return res.status(200).send(JSON.stringify(userData));
   } catch (err) {
     return res.status(500).json({ error: "Internal Server Error" });
   }
@@ -190,8 +188,7 @@ app.post(["/user/update", "/user/updateusername"], (req, res) => {
     saveUserToFile(userData);
   }
 
-  const responseData = userData || { success: true };
-  return res.status(200).send(JSON.stringify(responseData));
+  return res.status(200).send(JSON.stringify(userData || { success: true }));
 });
 
 // 5. Servidores
@@ -204,7 +201,7 @@ app.get(["/servers", "/servers/*"], (req, res) => {
   }));
 });
 
-// 6. Finim da Partida / Round Finish
+// 6. Round Finish
 app.post(["/round/finish", "/round/finish/*", "/round/finishv2/*"], (req, res) => {
   res.setHeader("Content-Type", "application/json");
   return res.status(200).send(JSON.stringify({ success: true, reward: {} }));
@@ -226,7 +223,7 @@ app.post(["/economy/*", "/battlepass/*"], (req, res) => {
   return res.status(200).send(JSON.stringify({ success: true }));
 });
 
-// 8. Ranking, Social e Checagens
+// 8. Ranking e Checagens
 app.get("/highscore/*", (req, res) => {
   res.setHeader("Content-Type", "application/json");
   return res.status(200).send(JSON.stringify({ Ranks: [], Highscores: [] }));
