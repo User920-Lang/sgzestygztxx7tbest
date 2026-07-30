@@ -162,11 +162,20 @@ app.get(["/servers", "/servers/region/*"], (req, res) => {
 });
 
 app.get("/shared/*", (req, res) => {
+  res.setHeader("Content-Type", "application/json");
   return res.status(200).json({
     Shared: {
       Version: 1,
-      Data: {}
-    }
+      Data: {
+        DisableShop: false,
+        DisableCustomParties: false,
+        DisableFriends: false,
+        Maintenance: false,
+        RoundTime: 180,
+        MaxPlayers: 32
+      }
+    },
+    Hash: "shared_ok_hash"
   });
 });
 
