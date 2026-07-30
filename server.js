@@ -52,9 +52,19 @@ function createNewUser(deviceId) {
       { Name: "coins", Amount: 250 },
       { Name: "dust", Amount: 250 }
     ],
-    BattlePass: null // ⚠️ Deixar null evita a exceção em GetEndTime() no C#
+    BattlePass: null
   };
 }
+
+// ================= ROTA DE VALIDAÇÃO /auth =================
+app.get("/auth", (req, res) => {
+  const { hash } = req.query;
+  if (hash === HASH_CODE) {
+    return res.send("on");
+  } else {
+    return res.status(403).send("off");
+  }
+});
 
 // ================= ROTA DE LOGIN =================
 app.post("/user/login", (req, res) => {
@@ -70,10 +80,8 @@ app.post("/user/login", (req, res) => {
       console.log(`[LOGIN] Novo usuário criado: ${user.Username} (ID: ${user.Id})`);
     } else {
       user.LastLogin = new Date().toISOString();
-      console.log(`[LOGIN] Usuário logado: ${user.Username}`);
     }
 
-    // Retorna envelopado em "User" e "RewardHash" exatamente como o Backend.cs exige
     res.json({
       User: user,
       RewardHash: "hash_ok"
@@ -84,9 +92,14 @@ app.post("/user/login", (req, res) => {
   }
 });
 
-// ================= ROTAS DE SUPORTE =================
+// ================= ROTAS DE SHARED E SERVIDORES =================
 app.get("/shared/:version/:type", (req, res) => {
-  res.json({ Shared: { Version: req.params.version || 0, Data: {} } });
+  res.json({
+    Shared: {
+      Version: req.params.version || 0,
+      Data: {}
+    }
+  });
 });
 
 app.get("/servers", (req, res) => {
