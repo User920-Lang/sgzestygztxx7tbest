@@ -31,9 +31,9 @@ function createNewUser(deviceId) {
     Country: "SA",
     Region: "SA",
     Crowns: 0,
-    Gems: 500,
-    Coins: 250,
-    Dust: 250,
+    Gems: 1000,
+    Coins: 500,
+    Dust: 500,
     Experience: 0,
     SkillRating: 0,
     Level: 1,
@@ -48,15 +48,15 @@ function createNewUser(deviceId) {
     Rewards: [],
     Friends: [],
     Balances: [
-      { Name: "gems", Amount: 500 },
-      { Name: "coins", Amount: 250 },
-      { Name: "dust", Amount: 250 }
+      { Name: "gems", Amount: 1000 },
+      { Name: "coins", Amount: 500 },
+      { Name: "dust", Amount: 500 }
     ],
     BattlePass: null
   };
 }
 
-// ================= ROTA DE VALIDAÇÃO /auth =================
+// 1. Rota de autenticação simples
 app.get("/auth", (req, res) => {
   const { hash } = req.query;
   if (hash === HASH_CODE) {
@@ -66,7 +66,7 @@ app.get("/auth", (req, res) => {
   }
 });
 
-// ================= ROTA DE LOGIN =================
+// 2. Rota oficial de Login que o Backend.cs chama
 app.post("/user/login", (req, res) => {
   try {
     const { DeviceId, deviceId } = req.body;
@@ -77,14 +77,16 @@ app.post("/user/login", (req, res) => {
     if (!user) {
       user = createNewUser(activeDeviceId);
       users.set(activeDeviceId, user);
-      console.log(`[LOGIN] Novo usuário criado: ${user.Username} (ID: ${user.Id})`);
+      console.log(`[LOGIN] Criado novo usuário: ${user.Username}`);
     } else {
       user.LastLogin = new Date().toISOString();
+      console.log(`[LOGIN] Usuário autenticado: ${user.Username}`);
     }
 
+    // Estrutura EXATA exigida pelo Backend.cs
     res.json({
       User: user,
-      RewardHash: "hash_ok"
+      RewardHash: "hash_ok_12345"
     });
   } catch (err) {
     console.error("Erro no /user/login:", err);
@@ -92,16 +94,17 @@ app.post("/user/login", (req, res) => {
   }
 });
 
-// ================= ROTAS DE SHARED E SERVIDORES =================
-app.get("/shared/:version/:type", (req, res) => {
+// 3. Rota /shared/* que o MonoSingleton<Shared> solicita antes do login
+app.get("/shared/*", (req, res) => {
   res.json({
     Shared: {
-      Version: req.params.version || 0,
+      Version: 1,
       Data: {}
     }
   });
 });
 
+// 4. Rotas de Servidores solicitadas pelo GetServers() no Backend.cs
 app.get("/servers", (req, res) => {
   res.json({ Servers: [{ Name: "SA", Region: "SA", Ping: 20 }] });
 });
@@ -110,26 +113,9 @@ app.get("/servers/region/:region", (req, res) => {
   res.json({ Servers: [{ Name: req.params.region, Region: req.params.region, Ping: 20 }] });
 });
 
-app.post("/user/update", (req, res) => {
-  try {
-    const { DeviceId, deviceId, Username, username } = req.body;
-    const id = DeviceId || deviceId;
-    const newName = Username || username;
-
-    const user = users.get(id);
-    if (!user) return res.status(404).json({ error: "user not found" });
-
-    if (newName) user.Username = newName;
-
-    res.json({ User: user });
-  } catch (err) {
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
+// 5. Demais checagens do jogo
 app.get("/onlinecheck", (req, res) => res.send("on"));
-app.get("/config.json", (req, res) => res.json({ name: "StumbleZesty", version: "1.0.0", maintenance: false }));
 
 app.listen(PORT, () => {
-  console.log(`\n🚀 Servidor Backend rodando na porta ${PORT}`);
+  console.log(`\n🚀 Servidor do Stumble Guys totalmente pronto na porta ${PORT}`);
 });
