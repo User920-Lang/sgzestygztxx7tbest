@@ -19,7 +19,7 @@ function generateRandomId() {
   return Math.floor(Math.random() * 1001) + 1;
 }
 
-function generateRandomSuffix(length = 4) {
+function generateRandomSuffix(length = 8) {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let result = "";
   for (let i = 0; i < length; i++) {
@@ -89,6 +89,7 @@ function getUserFromFile(deviceId) {
 }
 
 app.use((req, res, next) => {
+  res.setHeader("Content-Type", "application/json");
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
@@ -105,8 +106,6 @@ app.get("/auth", (req, res) => {
 });
 
 app.post("/user/login", (req, res) => {
-  res.setHeader("Content-Type", "application/json");
-
   try {
     const { DeviceId, deviceId } = req.body || {};
     const activeDeviceId = DeviceId || deviceId || "default_device";
@@ -139,8 +138,30 @@ app.post("/user/login", (req, res) => {
   }
 });
 
+app.post(["/user/update", "/user/updateusername"], (req, res) => {
+  const { DeviceId, deviceId, Username, username } = req.body || {};
+  const activeDeviceId = DeviceId || deviceId || "default_device";
+  const newName = Username || username;
+
+  let userData = getUserFromFile(activeDeviceId);
+  if (userData && newName) {
+    userData.User.Username = newName;
+    userData.User.Name = newName;
+    saveUserToFile(userData);
+  }
+
+  return res.status(200).json(userData || { success: true });
+});
+
+app.get(["/servers", "/servers/region/*"], (req, res) => {
+  return res.status(200).json({
+    Servers: [
+      { Name: "XX", Region: "XX", Ping: 20 }
+    ]
+  });
+});
+
 app.get("/shared/*", (req, res) => {
-  res.setHeader("Content-Type", "application/json");
   return res.status(200).json({
     Shared: {
       Version: 1,
@@ -149,20 +170,47 @@ app.get("/shared/*", (req, res) => {
   });
 });
 
-app.get("/servers*", (req, res) => {
-  res.setHeader("Content-Type", "application/json");
-  return res.status(200).json({
-    Servers: [
-      { Name: "XX", Region: "XX", Ping: 20 }
-    ]
-  });
+app.post(["/round/finish", "/round/finish/*", "/round/finishv2/*"], (req, res) => {
+  return res.status(200).json({ success: true, reward: {} });
 });
 
-app.get("/onlinecheck", (req, res) => {
+app.post("/round/check", (req, res) => {
+  return res.status(200).json({ success: true, valid: true });
+});
+
+app.get(["/economy/*", "/user/refresheconomy"], (req, res) => {
+  return res.status(200).json({ success: true });
+});
+
+app.post("/economy/*", (req, res) => {
+  return res.status(200).json({ success: true });
+});
+
+app.get(["/battlepass/*"], (req, res) => {
+  return res.status(200).json({ success: true });
+});
+
+app.post(["/battlepass/*"], (req, res) => {
+  return res.status(200).json({ success: true });
+});
+
+app.get("/highscore/*", (req, res) => {
+  return res.status(200).json({ Ranks: [], Highscores: [] });
+});
+
+app.get(["/user/profile/*", "/user/news", "/user/friend/*"], (req, res) => {
+  return res.status(200).json({ success: true });
+});
+
+app.post(["/user/search", "/user/linkgoogle", "/user/linkfacebook", "/user/cheat"], (req, res) => {
+  return res.status(200).json({ success: true });
+});
+
+app.get(["/onlinecheck", "/tests/*"], (req, res) => {
   res.setHeader("Content-Type", "text/plain");
   return res.status(200).send("on");
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server fully supporting Backend.cs on port ${PORT}`);
 });
