@@ -106,8 +106,8 @@ app.get("/auth", (req, res) => {
   return res.status(403).send("off");
 });
 
-// 2. Rota do Shared (Lê o Shared.json e envelopa para a Unity)
-app.get("/shared/*", (req, res) => {
+// 2. Rota do Shared (Garante envio estruturado para o client)
+app.get(["/shared/*", "/shared"], (req, res) => {
   res.setHeader("Content-Type", "application/json");
 
   const sharedPath = path.join(__dirname, "Shared.json");
@@ -117,28 +117,27 @@ app.get("/shared/*", (req, res) => {
       const rawData = fs.readFileSync(sharedPath, "utf8");
       const parsedData = JSON.parse(rawData);
 
-      return res.status(200).json({
+      const payload = {
         Shared: {
           Version: 1,
           Data: parsedData
         },
         Hash: "shared_ok_hash_123"
-      });
+      };
+
+      return res.status(200).send(JSON.stringify(payload));
     } catch (err) {
-      console.error("[SHARED ERROR] Erro ao processar Shared.json:", err);
+      console.error("[SHARED ERROR]:", err);
     }
   }
 
-  return res.status(200).json({
-    Shared: {
-      Version: 1,
-      Data: {}
-    },
+  return res.status(200).send(JSON.stringify({
+    Shared: { Version: 1, Data: {} },
     Hash: "shared_ok_hash"
-  });
+  }));
 });
 
-// 3. Login
+// 3. Login (/user/login) - Resposta compacta obrigatória para Backend.cs
 app.post("/user/login", (req, res) => {
   res.setHeader("Content-Type", "application/json");
 
@@ -168,7 +167,10 @@ app.post("/user/login", (req, res) => {
     }
 
     saveUserToFile(userData);
-    return res.status(200).json(userData);
+
+    // IMPORTANTE: Envia sem formatação/espaços no início para passar no StartsWith("{\"User\":")
+    const jsonString = JSON.stringify(userData);
+    return res.status(200).send(jsonString);
   } catch (err) {
     return res.status(500).json({ error: "Internal Server Error" });
   }
@@ -188,55 +190,56 @@ app.post(["/user/update", "/user/updateusername"], (req, res) => {
     saveUserToFile(userData);
   }
 
-  return res.status(200).json(userData || { success: true });
+  const responseData = userData || { success: true };
+  return res.status(200).send(JSON.stringify(responseData));
 });
 
 // 5. Servidores
-app.get(["/servers", "/servers/region/*"], (req, res) => {
+app.get(["/servers", "/servers/*"], (req, res) => {
   res.setHeader("Content-Type", "application/json");
-  return res.status(200).json({
+  return res.status(200).send(JSON.stringify({
     Servers: [
       { Name: "XX", Region: "XX", Ping: 20 }
     ]
-  });
+  }));
 });
 
 // 6. Finim da Partida / Round Finish
 app.post(["/round/finish", "/round/finish/*", "/round/finishv2/*"], (req, res) => {
   res.setHeader("Content-Type", "application/json");
-  return res.status(200).json({ success: true, reward: {} });
+  return res.status(200).send(JSON.stringify({ success: true, reward: {} }));
 });
 
 app.post("/round/check", (req, res) => {
   res.setHeader("Content-Type", "application/json");
-  return res.status(200).json({ success: true, valid: true });
+  return res.status(200).send(JSON.stringify({ success: true, valid: true }));
 });
 
 // 7. Loja, Economia e BattlePass
 app.get(["/economy/*", "/user/refresheconomy", "/battlepass/*"], (req, res) => {
   res.setHeader("Content-Type", "application/json");
-  return res.status(200).json({ success: true });
+  return res.status(200).send(JSON.stringify({ success: true }));
 });
 
 app.post(["/economy/*", "/battlepass/*"], (req, res) => {
   res.setHeader("Content-Type", "application/json");
-  return res.status(200).json({ success: true });
+  return res.status(200).send(JSON.stringify({ success: true }));
 });
 
 // 8. Ranking, Social e Checagens
 app.get("/highscore/*", (req, res) => {
   res.setHeader("Content-Type", "application/json");
-  return res.status(200).json({ Ranks: [], Highscores: [] });
+  return res.status(200).send(JSON.stringify({ Ranks: [], Highscores: [] }));
 });
 
 app.get(["/user/profile/*", "/user/news", "/user/friend/*"], (req, res) => {
   res.setHeader("Content-Type", "application/json");
-  return res.status(200).json({ success: true });
+  return res.status(200).send(JSON.stringify({ success: true }));
 });
 
 app.post(["/user/search", "/user/linkgoogle", "/user/linkfacebook", "/user/cheat"], (req, res) => {
   res.setHeader("Content-Type", "application/json");
-  return res.status(200).json({ success: true });
+  return res.status(200).send(JSON.stringify({ success: true }));
 });
 
 app.get(["/onlinecheck", "/tests/*"], (req, res) => {
