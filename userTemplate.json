@@ -17,9 +17,7 @@
     "Banned": false,
     "Created": "",
     "LastLogin": "",
-    "Skins": [
-      "SKIN1"
-    ],
+    "Skins": [],
     "SkinVariants": [],
     "Emotes": [],
     "Animations": [],
@@ -27,18 +25,9 @@
     "Rewards": [],
     "Friends": [],
     "Balances": [
-      {
-        "Name": "gems",
-        "Amount": 1000
-      },
-      {
-        "Name": "coins",
-        "Amount": 500
-      },
-      {
-        "Name": "dust",
-        "Amount": 500
-      }
+      { "Name": "gems", "Amount": 1000 },
+      { "Name": "coins", "Amount": 500 },
+      { "Name": "dust", "Amount": 500 }
     ],
     "BattlePass": null
   },
