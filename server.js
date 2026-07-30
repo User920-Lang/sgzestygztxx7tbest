@@ -28,8 +28,8 @@ function createNewUser(deviceId) {
     Username: generateRandomUsername(),
     DeviceId: deviceId,
     Token: "session_token_" + Date.now(),
-    Country: "SA",
-    Region: "SA",
+    Country: "XX",
+    Region: "XX",
     Crowns: 0,
     Gems: 500,
     Coins: 250,
@@ -41,23 +41,32 @@ function createNewUser(deviceId) {
     Created: now,
     LastLogin: now,
     Skins: ["SKIN1"],
+    SkinVariants: [],
+    Emotes: [],
+    Animations: [],
+    Footsteps: [],
+    Rewards: [],
+    Friends: [],
     Balances: [
       { Name: "gems", Amount: 500 },
       { Name: "coins", Amount: 250 },
       { Name: "dust", Amount: 250 }
-    ]
+    ],
+    BattlePass: {
+      Season: 1,
+      Level: 0,
+      Progress: 0,
+      Premium: false,
+      EndTime: new Date(Date.now() + 30 * 86400000).toISOString()
+    }
   };
 }
 
-// ================= ROTA DE LOGIN (Corrigida sem exigi hash no body) =================
+// ================= ROTA DE LOGIN =================
 app.post("/user/login", (req, res) => {
   try {
     const { DeviceId, deviceId } = req.body;
-    const activeDeviceId = DeviceId || deviceId;
-
-    if (!activeDeviceId) {
-      return res.status(400).json({ error: "DeviceId is required" });
-    }
+    const activeDeviceId = DeviceId || deviceId || "default_device";
 
     let user = users.get(activeDeviceId);
 
@@ -70,7 +79,6 @@ app.post("/user/login", (req, res) => {
       console.log(`[LOGIN] Usuário logado: ${user.Username}`);
     }
 
-    // Retorna envelopado em "User" exatamente como o Backend.cs exige
     res.json({
       User: user,
       RewardHash: "hash_ok"
@@ -81,33 +89,19 @@ app.post("/user/login", (req, res) => {
   }
 });
 
-// ================= ROTAS PARA CORRIGIR O 'Shared update error!' =================
+// ================= ROTAS DE SUPORTE =================
 app.get("/shared/:version/:type", (req, res) => {
-  res.json({
-    Shared: {
-      Version: req.params.version || 0,
-      Data: {}
-    }
-  });
+  res.json({ Shared: { Version: req.params.version || 0, Data: {} } });
 });
 
 app.get("/servers", (req, res) => {
-  res.json({
-    Servers: [
-      { Name: "SA", Region: "SA", Ping: 20 }
-    ]
-  });
+  res.json({ Servers: [{ Name: "SA", Region: "SA", Ping: 20 }] });
 });
 
 app.get("/servers/region/:region", (req, res) => {
-  res.json({
-    Servers: [
-      { Name: req.params.region, Region: req.params.region, Ping: 20 }
-    ]
-  });
+  res.json({ Servers: [{ Name: req.params.region, Region: req.params.region, Ping: 20 }] });
 });
 
-// ================= DEMAIS ROTAS =================
 app.post("/user/update", (req, res) => {
   try {
     const { DeviceId, deviceId, Username, username } = req.body;
