@@ -1,30 +1,11 @@
 const express = require("express");
-const fs = require("fs");
-const path = require("path");
-
 const app = express();
 const PORT = process.env.PORT || 8080;
 
 app.use(express.json());
 
-const USERS_FILE = path.join(__dirname, "userslogin.json");
 const HASH_CODE = "GZTXX7-189jaiu-&B!(p093=2-0!#45v";
-
-function ensureUsersFile() {
-  if (!fs.existsSync(USERS_FILE)) {
-    fs.writeFileSync(USERS_FILE, JSON.stringify({ users: [] }, null, 2));
-  }
-}
-
-function readUsers() {
-  ensureUsersFile();
-  const data = fs.readFileSync(USERS_FILE, "utf-8");
-  return JSON.parse(data);
-}
-
-function writeUsers(data) {
-  fs.writeFileSync(USERS_FILE, JSON.stringify(data, null, 2));
-}
+const users = new Map();
 
 function validateHash(hash) {
   return hash === HASH_CODE;
@@ -65,7 +46,7 @@ function createNewUser(deviceId, country) {
     region: "XX",
     crowns: 0,
     gems: 500,
-    coins: 0,
+    coins: 250,
     dust: 250,
     aec: 0,
     trophys: 0,
@@ -74,7 +55,7 @@ function createNewUser(deviceId, country) {
     level: 1,
     kicked: false,
     kickReason: null,
-    banned: true,
+    banned: false,
     temporary_banned: false,
     ban_expires_at: null,
     created: now,
@@ -119,7 +100,6 @@ function createNewUser(deviceId, country) {
     }
   };
 }
-
 app.post("/user/login", (req, res) => {
   try {
     const { deviceId, country, hash } = req.body;
@@ -136,23 +116,20 @@ app.post("/user/login", (req, res) => {
       return res.status(400).json({ error: "deviceId required" });
     }
 
-    const data = readUsers();
-    let user = data.users.find(u => u.deviceId === deviceId);
+    let user = users.get(deviceId);
 
     if (!user) {
       user = createNewUser(deviceId, country);
-      data.users.push(user);
-      writeUsers(data);
+      users.set(deviceId, user);
       console.log(`✓ Novo usuário: ${user.username} (ID: ${user.id})`);
     } else {
       user.lastLogin = new Date().toISOString();
-      writeUsers(data);
     }
 
     if (user.banned) {
       return res.json({ banned: true });
     }
-    
+
     res.json({
       id: user.id,
       username: user.username,
@@ -197,7 +174,68 @@ app.post("/user/login", (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+app.post("/round/finish", (req, res) => {
+  try {
+    const { deviceId, hash, kills, deaths, experience_gained, gems_earned, coins_earned, match_won } = req.body;
 
+    if (!validateHash(hash)) {
+      return res.status(401).json({ error: "invalid hash" });
+    }
+
+    if (!deviceId) {
+      return res.status(400).json({ error: "deviceId required" });
+    }
+
+    let user = users.get(deviceId);
+
+    if (!user) {
+      return res.status(404).json({ error: "user not found" });
+    }
+    user.statistics.totalKills += kills || 0;
+    user.statistics.totalDeaths += deaths || 0;
+    user.statistics.kd_ratio = user.statistics.totalDeaths > 0 
+      ? (user.statistics.totalKills / user.statistics.totalDeaths).toFixed(2) 
+      : user.statistics.totalKills;
+    user.experience += experience_gained || 0;
+    user.gems += gems_earned || 0;
+    user.coins += coins_earned || 0;
+    const gemsBalance = user.balances.find(b => b.Name === "gems");
+    const coinsBalance = user.balances.find(b => b.Name === "coins");
+    if (gemsBalance) gemsBalance.Amount = user.gems;
+    if (coinsBalance) coinsBalance.Amount = user.coins;
+    user.matches_played += 1;
+    if (match_won) {
+      user.matches_won += 1;
+      user.crowns += 1; 
+    }
+    user.win_rate = ((user.matches_won / user.matches_played) * 100).toFixed(1);)
+    user.level = Math.floor(user.experience / 1000) + 1;
+    user.trophys = Math.floor(user.statistics.kd_ratio * 100);
+    user.skillRating = user.trophys;
+
+    user.lastLogin = new Date().toISOString();
+
+    console.log(`✓ ${user.username} finalizou partida - Kills: ${kills}, Experience: ${experience_gained}`);
+
+    res.json({
+      success: true,
+      id: user.id,
+      experience: user.experience,
+      level: user.level,
+      gems: user.gems,
+      coins: user.coins,
+      crowns: user.crowns,
+      trophys: user.trophys,
+      matches_played: user.matches_played,
+      matches_won: user.matches_won,
+      win_rate: user.win_rate,
+      statistics: user.statistics
+    });
+  } catch (err) {
+    console.error("Erro:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 app.post("/user/update", (req, res) => {
   try {
     const { deviceId, username, hash } = req.body;
@@ -210,15 +248,13 @@ app.post("/user/update", (req, res) => {
       return res.status(400).json({ error: "deviceId and username required" });
     }
 
-    const data = readUsers();
-    const user = data.users.find(u => u.deviceId === deviceId);
+    const user = users.get(deviceId);
 
     if (!user) {
       return res.status(404).json({ error: "user not found" });
     }
 
     user.username = username.trim();
-    writeUsers(data);
 
     res.json({
       id: user.id,
@@ -230,24 +266,35 @@ app.post("/user/update", (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+app.get("/user/:deviceId", (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const user = users.get(deviceId);
 
+    if (!user) {
+      return res.status(404).json({ error: "user not found" });
+    }
+
+    res.json(user);
+  } catch (err) {
+    console.error("Erro:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 app.get("/users", (req, res) => {
   try {
-    const data = readUsers();
-    res.json(data);
+    const userList = Array.from(users.values());
+    res.json({ users: userList, total: userList.length });
   } catch (err) {
     res.status(500).json({ error: "Error reading users" });
   }
 });
-
 app.get("/hash", (req, res) => {
   res.json({ hash: HASH_CODE });
 });
-
 app.get("/onlinecheck", (req, res) => {
   res.send("on");
 });
-
 app.get("/config.json", (req, res) => {
   res.json({
     name: "StumbleZesty",
@@ -255,7 +302,6 @@ app.get("/config.json", (req, res) => {
     maintenance: false
   });
 });
-
 app.get("/auth", (req, res) => {
   const hash = (req.query.hash || "").trim();
 
@@ -266,11 +312,9 @@ app.get("/auth", (req, res) => {
   res.send("on");
 });
 
-ensureUsersFile();
-
 app.listen(PORT, () => {
   console.log(`\n🚀 Servidor rodando na porta ${PORT}`);
   console.log(`🔑 Hash Code: ${HASH_CODE}`);
-  console.log(`📁 Arquivo JSON: ${USERS_FILE}`);
-  console.log(`✓ Pronto para receber logins!\n`);
+  console.log(`📊 Dados em MEMÓRIA (sem arquivo)\n`);
+  console.log(`Usuários conectados: ${users.size}\n`);
 });
