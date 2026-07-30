@@ -1,0 +1,46 @@
+{
+  "User": {
+    "Id": 0,
+    "Username": "",
+    "Name": "",
+    "DeviceId": "",
+    "Token": "",
+    "Country": "XX",
+    "Region": "XX",
+    "Crowns": 0,
+    "Gems": 1000,
+    "Coins": 500,
+    "Dust": 500,
+    "Experience": 0,
+    "SkillRating": 0,
+    "Level": 1,
+    "Banned": false,
+    "Created": "",
+    "LastLogin": "",
+    "Skins": [
+      "SKIN1"
+    ],
+    "SkinVariants": [],
+    "Emotes": [],
+    "Animations": [],
+    "Footsteps": [],
+    "Rewards": [],
+    "Friends": [],
+    "Balances": [
+      {
+        "Name": "gems",
+        "Amount": 1000
+      },
+      {
+        "Name": "coins",
+        "Amount": 500
+      },
+      {
+        "Name": "dust",
+        "Amount": 500
+      }
+    ],
+    "BattlePass": null
+  },
+  "RewardHash": "hash_ok_12345"
+}
