@@ -28,8 +28,8 @@ function createNewUser(deviceId) {
     Username: generateRandomUsername(),
     DeviceId: deviceId,
     Token: "session_token_" + Date.now(),
-    Country: "XX",
-    Region: "XX",
+    Country: "SA",
+    Region: "SA",
     Crowns: 0,
     Gems: 500,
     Coins: 250,
@@ -52,13 +52,7 @@ function createNewUser(deviceId) {
       { Name: "coins", Amount: 250 },
       { Name: "dust", Amount: 250 }
     ],
-    BattlePass: {
-      Season: 1,
-      Level: 0,
-      Progress: 0,
-      Premium: false,
-      EndTime: new Date(Date.now() + 30 * 86400000).toISOString()
-    }
+    BattlePass: null // ⚠️ Deixar null evita a exceção em GetEndTime() no C#
   };
 }
 
@@ -79,6 +73,7 @@ app.post("/user/login", (req, res) => {
       console.log(`[LOGIN] Usuário logado: ${user.Username}`);
     }
 
+    // Retorna envelopado em "User" e "RewardHash" exatamente como o Backend.cs exige
     res.json({
       User: user,
       RewardHash: "hash_ok"
