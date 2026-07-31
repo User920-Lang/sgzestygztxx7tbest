@@ -13,7 +13,6 @@ if (MONGO_URI) {
     mongoose.connect(MONGO_URI).catch(err => console.error("Erro no Mongo:", err));
 }
 
-// Schema do Usuário
 const userSchema = new mongoose.Schema({
     DeviceId: { type: String, required: true, unique: true },
     Username: { type: String, required: true },
@@ -44,56 +43,38 @@ function generateRandomTag() {
 }
 
 function extractDeviceId(req) {
-    if (req.body && req.body.DeviceId) {
-        return req.body.DeviceId;
+    if (req.body) {
+        if (req.body.DeviceId) return req.body.DeviceId;
+        if (req.body.deviceId) return req.body.deviceId;
+        if (req.body.device_id) return req.body.device_id;
     }
-    const authHeader = req.headers['authorization'];
+
+    const headers = req.headers || {};
+    if (headers['deviceid']) return headers['deviceid'];
+    if (headers['device-id']) return headers['device-id'];
+    if (headers['x-device-id']) return headers['x-device-id'];
+
+    const authHeader = headers['authorization'];
     if (authHeader) {
         try {
             const parsed = JSON.parse(authHeader);
             if (parsed.DeviceId) return parsed.DeviceId;
+            if (parsed.deviceId) return parsed.deviceId;
         } catch (e) {
             if (typeof authHeader === 'string' && authHeader.length > 5) {
                 return authHeader;
             }
         }
     }
+
+    if (req.query) {
+        if (req.query.DeviceId) return req.query.DeviceId;
+        if (req.query.deviceId) return req.query.deviceId;
+    }
+
     return null;
 }
 
-// Auth Check
-app.get('/auth', (req, res) => {
-    try {
-        const hash = req.query.hash;
-        if (hash === HASH_CODE) {
-            return res.send("on");
-        }
-        return res.status(401).send("off");
-    } catch (error) {
-        return res.status(500).send("error");
-    }
-});
-
-// Shared Config
-app.all('/shared/:version/:type', (req, res) => {
-    const sharedPath = path.join(__dirname, 'Shared.json');
-
-    if (fs.existsSync(sharedPath)) {
-        res.setHeader('Content-Type', 'application/json');
-        return res.sendFile(sharedPath);
-    }
-
-    return res.json({
-        "round_time": 180,
-        "max_players": 32,
-        "disable_ads": true,
-        "free_spins": 999,
-        "version": req.params.version || "1766",
-        "type": req.params.type || "LIVE"
-    });
-});
-
-// Formatação para evitar NullReferenceException em qualquer View da Unity
 function formatUserResponse(user) {
     return {
         Id: 100000,
@@ -122,7 +103,6 @@ function formatUserResponse(user) {
             Crowns: user.Crowns
         },
 
-        // Objeto do BattlePass necessário para o BattlePassButtonHelper.cs
         BattlePass: {
             PassType: "Free",
             PassLevel: 1,
@@ -143,7 +123,36 @@ function formatUserResponse(user) {
     };
 }
 
-// User Login
+app.get('/auth', (req, res) => {
+    try {
+        const hash = req.query.hash;
+        if (hash === HASH_CODE) {
+            return res.send("on");
+        }
+        return res.status(401).send("off");
+    } catch (error) {
+        return res.status(500).send("error");
+    }
+});
+
+app.all('/shared/:version/:type', (req, res) => {
+    const sharedPath = path.join(__dirname, 'Shared.json');
+
+    if (fs.existsSync(sharedPath)) {
+        res.setHeader('Content-Type', 'application/json');
+        return res.sendFile(sharedPath);
+    }
+
+    return res.json({
+        "round_time": 180,
+        "max_players": 32,
+        "disable_ads": true,
+        "free_spins": 999,
+        "version": req.params.version || "1766",
+        "type": req.params.type || "LIVE"
+    });
+});
+
 app.post('/user/login', async (req, res) => {
     try {
         const deviceId = extractDeviceId(req);
@@ -176,42 +185,53 @@ app.post('/user/login', async (req, res) => {
     }
 });
 
-// Lógica Unificada para Troca de Nick (Com Custo e Grátis)
 const handleUserUpdate = async (req, res, isFree = false) => {
     try {
-        const deviceId = extractDeviceId(req);
+        let deviceId = extractDeviceId(req);
         const newUsername = req.body.Username || req.body.Name || req.body.user || req.body.username;
-
-        if (!deviceId) {
-            return res.status(400).json({ error: "DeviceId missing" });
-        }
 
         if (!newUsername || newUsername.length < 4 || newUsername.length > 24) {
             return res.status(400).json({ error: "Invalid username length" });
         }
 
-        let user = await UserModel.findOne({ DeviceId: deviceId });
+        let user = null;
+
+        if (deviceId) {
+            user = await UserModel.findOne({ DeviceId: deviceId });
+        }
 
         if (!user) {
-            return res.status(404).json({ error: "User not found" });
+            user = await UserModel.findOne().sort({ _id: -1 });
         }
 
-        // Verifica se o nick já está em uso por outro usuário
-        const existingUser = await UserModel.findOne({ Username: newUsername });
-        if (existingUser && existingUser.DeviceId !== deviceId) {
-            return res.status(400).json({ error: "NAME_TAKEN" });
-        }
-
-        // Se não for grátis, faz a verificação de gemas (100 Gemas)
-        if (!isFree) {
-            const COST_PER_CHANGE = 100;
-            if (user.Gems < COST_PER_CHANGE) {
-                return res.status(400).json({ error: "NOT_ENOUGH_GEMS" });
+        if (!user) {
+            user = new UserModel({
+                DeviceId: deviceId || `generated_${Date.now()}`,
+                Username: newUsername,
+                Gems: 500,
+                Tokens: 250,
+                Crowns: 250,
+                SkillRating: 0,
+                Experience: 0,
+                AuthToken: `token_${Date.now()}`
+            });
+        } else {
+            const existingUser = await UserModel.findOne({ Username: newUsername });
+            if (existingUser && existingUser._id.toString() !== user._id.toString()) {
+                return res.status(400).json({ error: "NAME_TAKEN" });
             }
-            user.Gems -= COST_PER_CHANGE;
+
+            if (!isFree) {
+                const COST_PER_CHANGE = 100;
+                if (user.Gems < COST_PER_CHANGE) {
+                    return res.status(400).json({ error: "NOT_ENOUGH_GEMS" });
+                }
+                user.Gems -= COST_PER_CHANGE;
+            }
+
+            user.Username = newUsername;
         }
 
-        user.Username = newUsername;
         await user.save();
 
         return res.json({
@@ -222,13 +242,11 @@ const handleUserUpdate = async (req, res, isFree = false) => {
     }
 };
 
-// Endpoints chamados pela Unity
 app.post('/user/updateusername', (req, res) => handleUserUpdate(req, res, false));
 app.post('/user/updateusernamefree', (req, res) => handleUserUpdate(req, res, true));
 app.post('/user/update', (req, res) => handleUserUpdate(req, res, false));
 app.post('/user/name/change', (req, res) => handleUserUpdate(req, res, false));
 
-// Fim de Partida
 const handleFinishRound = async (req, res) => {
     try {
         const deviceId = extractDeviceId(req);
@@ -257,7 +275,6 @@ const handleFinishRound = async (req, res) => {
 app.post('/user/round_finish', handleFinishRound);
 app.post('/user/finish', handleFinishRound);
 
-// Rankings / Leaderboards
 async function getLeaderboardData(sortField) {
     const sortOption = {};
     sortOption[sortField] = -1;
@@ -310,7 +327,6 @@ app.post('/highscore/rankings', handleHighscoreList);
 app.get('/highscore/:type', handleHighscoreList);
 app.post('/highscore/:type', handleHighscoreList);
 
-// News
 async function getNewsResponse() {
     let newsList = await NewsModel.find();
 
