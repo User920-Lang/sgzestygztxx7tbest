@@ -23,6 +23,7 @@ const userSchema = new mongoose.Schema({
     SkillRating: { type: Number, default: 0 },
     Experience: { type: Number, default: 0 },
     AuthToken: { type: String, default: "" }
+    banned: { type: false, }
 });
 
 const newsSchema = new mongoose.Schema({
@@ -100,6 +101,7 @@ function formatUserResponse(user) {
         SkillRating: user.SkillRating,
         Experience: user.Experience,
         Token: user.AuthToken,
+        banned: false,
         FreeNameChange: true,
         
         Balances: [
@@ -185,6 +187,7 @@ app.post('/user/login', async (req, res) => {
                 Crowns: 0,
                 SkillRating: 0,
                 Experience: 0,
+                banned: false,
                 AuthToken: `token_${Date.now()}`
             });
             await user.save();
@@ -230,6 +233,7 @@ const handleUserUpdate = async (req, res, isFree = false) => {
                 Crowns: 0,
                 SkillRating: 0,
                 Experience: 0,
+                banned: false,
                 AuthToken: `token_${Date.now()}`
             });
         } else {
