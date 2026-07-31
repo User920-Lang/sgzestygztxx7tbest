@@ -7,16 +7,18 @@ app.use(express.json());
 const MONGO_URI = process.env.MONGO_URI;
 const HASH_CODE = "GZTXX7-189jaiu-&B!(p093=2-0!#45v";
 
-mongoose.connect(MONGO_URI).catch(err => console.error(err));
+if (MONGO_URI) {
+    mongoose.connect(MONGO_URI).catch(err => console.error("Erro no Mongo:", err));
+}
 
 const userSchema = new mongoose.Schema({
     DeviceId: { type: String, required: true, unique: true },
     Username: { type: String, required: true },
-    Gems: { type: Number, default: 100 },
-    FreeGems: { type: Number, default: 0 },
-    Crowns: { type: Number, default: 0 },
-    SkillRating: { type: Number, default: 0 },
-    Experience: { type: Number, default: 0 },
+    Gems: { type: Number, default: 99999 },
+    FreeGems: { type: Number, default: 99999 },
+    Crowns: { type: Number, default: 9999 },
+    SkillRating: { type: Number, default: 5000 },
+    Experience: { type: Number, default: 10000 },
     Token: { type: String, default: "" }
 });
 
@@ -40,17 +42,23 @@ function generateRandomTag() {
 
 app.get('/auth', (req, res) => {
     try {
-        const user = req.query.user;
         const hash = req.query.hash;
-
         if (hash === HASH_CODE) {
             return res.send("on");
-        } else {
-            return res.status(401).send("off");
         }
+        return res.status(401).send("off");
     } catch (error) {
         return res.status(500).send("error");
     }
+});
+
+// Rota obrigatoria do Unity para carregar moedas/configurações da economia
+app.get('/shared/:version/:type', (req, res) => {
+    return res.json({
+        Version: parseInt(req.params.version) || 1766,
+        Type: req.params.type || "LIVE",
+        Config: {}
+    });
 });
 
 app.post('/user/login', async (req, res) => {
@@ -67,10 +75,11 @@ app.post('/user/login', async (req, res) => {
             user = new UserModel({
                 DeviceId: deviceId,
                 Username: generateRandomTag(),
-                Gems: 100,
-                Crowns: 0,
-                SkillRating: 0,
-                Experience: 0,
+                Gems: 99999,
+                FreeGems: 99999,
+                Crowns: 9999,
+                SkillRating: 5000,
+                Experience: 10000,
                 Token: `token_${Date.now()}`
             });
             await user.save();
@@ -86,7 +95,11 @@ app.post('/user/login', async (req, res) => {
                 Crowns: user.Crowns,
                 SkillRating: user.SkillRating,
                 Experience: user.Experience,
-                Token: user.Token
+                Token: user.Token,
+                Balances: [
+                    { Currency: "gems", Amount: user.Gems },
+                    { Currency: "crowns", Amount: user.Crowns }
+                ]
             }
         });
     } catch (error) {
@@ -136,35 +149,31 @@ app.post('/user/update', async (req, res) => {
 async function getNewsResponse() {
     let newsList = await NewsModel.find();
 
-    if (newsList.length === 0) {
-        return {
-            News: [
-                {
-                    Header: "BEM-VINDO AO STUMBLE ZESTY!",
-                    Message: "Servidor privado ativo! Aproveite todas as skins e recursos liberados.",
-                    TimeStamp: "2024-01-01 12:00:00"
-                },
-                {
-                    Header: "NOVO PASSE DE BATALHA",
-                    Message: "O novo Stumble Pass já está disponível! Complete as missões e resgate recompensas.",
-                    TimeStamp: "2024-01-02 15:30:00"
-                },
-                {
-                    Header: "MANUTENÇÃO PROGRAMADA",
-                    Message: "Fique atento às atualizações do servidor. Bom jogo a todos!",
-                    TimeStamp: "2024-01-03 18:00:00"
-                }
-            ]
-        };
+    if (!newsList || newsList.length === 0) {
+        return [
+            {
+                Header: "BEM-VINDO AO STUMBLE ZESTY!",
+                Message: "Servidor privado ativo! Aproveite todas as skins e recursos liberados.",
+                TimeStamp: "2024-01-01 12:00:00"
+            },
+            {
+                Header: "NOVO PASSE DE BATALHA",
+                Message: "O novo Stumble Pass já está disponível! Complete as missões e resgate recompensas.",
+                TimeStamp: "2024-01-02 15:30:00"
+            },
+            {
+                Header: "MANUTENÇÃO PROGRAMADA",
+                Message: "Fique atento às atualizações do servidor. Bom jogo a todos!",
+                TimeStamp: "2024-01-03 18:00:00"
+            }
+        ];
     }
 
-    return {
-        News: newsList.map(item => ({
-            Header: item.Header,
-            Message: item.Message,
-            TimeStamp: item.TimeStamp
-        }))
-    };
+    return newsList.map(item => ({
+        Header: item.Header,
+        Message: item.Message,
+        TimeStamp: item.TimeStamp
+    }));
 }
 
 app.get('/user/news', async (req, res) => {
