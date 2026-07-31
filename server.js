@@ -43,6 +43,25 @@ function generateRandomTag() {
     return `StumbleZesty#${code}`;
 }
 
+// Helper para extrair DeviceId do Body ou Header Authorization
+function extractDeviceId(req) {
+    if (req.body && req.body.DeviceId) {
+        return req.body.DeviceId;
+    }
+    const authHeader = req.headers['authorization'];
+    if (authHeader) {
+        try {
+            const parsed = JSON.parse(authHeader);
+            if (parsed.DeviceId) return parsed.DeviceId;
+        } catch (e) {
+            if (typeof authHeader === 'string' && authHeader.length > 5) {
+                return authHeader;
+            }
+        }
+    }
+    return null;
+}
+
 // Rota de Autenticação / Auth Check
 app.get('/auth', (req, res) => {
     try {
@@ -78,7 +97,7 @@ app.all('/shared/:version/:type', (req, res) => {
 // Rota de Login do Usuário
 app.post('/user/login', async (req, res) => {
     try {
-        const deviceId = req.body.DeviceId;
+        const deviceId = extractDeviceId(req);
 
         if (!deviceId) {
             return res.status(400).json({ error: "DeviceId missing" });
@@ -122,24 +141,60 @@ app.post('/user/login', async (req, res) => {
     }
 });
 
-// Rota de Atualização de Nick
+// Rota de Atualização do Nickname (Username)
 app.post('/user/update', async (req, res) => {
     try {
-        const { Username } = req.body;
-        let authHeader = req.headers['authorization'];
-        let deviceId = null;
+        const deviceId = extractDeviceId(req);
+        const newUsername = req.body.Username || req.body.Name || req.body.user;
 
-        if (authHeader) {
-            try {
-                const parsed = JSON.parse(authHeader);
-                deviceId = parsed.DeviceId;
-            } catch (e) {}
+        if (!deviceId) {
+            return res.status(400).json({ error: "DeviceId missing" });
         }
 
-        if (deviceId && Username) {
+        if (!newUsername) {
+            return res.status(400).json({ error: "New Username missing" });
+        }
+
+        const user = await UserModel.findOneAndUpdate(
+            { DeviceId: deviceId },
+            { Username: newUsername },
+            { new: true }
+        );
+
+        if (user) {
+            return res.json({
+                User: {
+                    Id: 100000,
+                    DeviceId: user.DeviceId,
+                    Username: user.Username,
+                    Gems: user.Gems,
+                    FreeGems: user.FreeGems,
+                    Crowns: user.Crowns,
+                    SkillRating: user.SkillRating,
+                    Experience: user.Experience,
+                    Token: user.Token,
+                    Skins: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+                }
+            });
+        }
+
+        return res.status(404).json({ error: "User not found" });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+});
+
+// Rota de Fim de Partida (Ganhar Coroas/Troféus)
+const handleFinishRound = async (req, res) => {
+    try {
+        const deviceId = extractDeviceId(req);
+        if (deviceId) {
+            const crownsToAdd = req.body.Crowns || req.body.Crown || 1;
+            const ratingToAdd = req.body.SkillRating || req.body.Score || 15;
+
             const user = await UserModel.findOneAndUpdate(
                 { DeviceId: deviceId },
-                { Username: Username },
+                { $inc: { Crowns: crownsToAdd, SkillRating: ratingToAdd } },
                 { new: true }
             );
 
@@ -148,25 +203,26 @@ app.post('/user/update', async (req, res) => {
                     User: {
                         DeviceId: user.DeviceId,
                         Username: user.Username,
-                        Gems: user.Gems,
                         Crowns: user.Crowns,
                         SkillRating: user.SkillRating
                     }
                 });
             }
         }
-
-        return res.status(400).json({ error: "Update failed" });
+        return res.json({ success: true });
     } catch (error) {
         return res.status(500).json({ error: error.message });
     }
-});
+};
+
+app.post('/user/round_finish', handleFinishRound);
+app.post('/user/finish', handleFinishRound);
 
 // --- ROTAS DO RANKING (HIGH SCORES) ---
 
 async function getLeaderboardData(sortField) {
     const sortOption = {};
-    sortOption[sortField] = -1; // Ordena do maior para o menor
+    sortOption[sortField] = -1;
 
     const topUsers = await UserModel.find().sort(sortOption).limit(50);
 
@@ -182,11 +238,10 @@ async function getLeaderboardData(sortField) {
     }));
 }
 
-// Handlers genéricos para capturar qualquer padrão de requisição de Ranking que o Unity fizer
 const handleHighscoreList = async (req, res) => {
     try {
         const type = (req.params.type || req.query.type || "").toLowerCase();
-        let sortField = 'SkillRating'; // Troféus/Rating por padrão
+        let sortField = 'SkillRating';
 
         if (type.includes('crown') || req.path.includes('crown')) {
             sortField = 'Crowns';
@@ -206,7 +261,6 @@ const handleHighscoreList = async (req, res) => {
     }
 };
 
-// Mapeia todas as possíveis variações de endpoint que o Unity pode chamar no Leaderboard
 app.get('/highscore/list', handleHighscoreList);
 app.post('/highscore/list', handleHighscoreList);
 app.get('/highscores/list', handleHighscoreList);
