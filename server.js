@@ -1,5 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 app.use(express.json());
@@ -8,7 +10,7 @@ const MONGO_URI = process.env.MONGO_URI;
 const HASH_CODE = "GZTXX7-189jaiu-&B!(p093=2-0!#45v";
 
 if (MONGO_URI) {
-    mongoose.connect(MONGO_URI).catch(err => console.error(err));
+    mongoose.connect(MONGO_URI).catch(err => console.error("Erro no Mongo:", err));
 }
 
 const userSchema = new mongoose.Schema({
@@ -53,6 +55,13 @@ app.get('/auth', (req, res) => {
 });
 
 app.all('/shared/:version/:type', (req, res) => {
+    const sharedPath = path.join(__dirname, 'Shared.json');
+
+    if (fs.existsSync(sharedPath)) {
+        res.setHeader('Content-Type', 'application/json');
+        return res.sendFile(sharedPath);
+    }
+
     return res.json({
         "round_time": 180,
         "max_players": 32,
@@ -78,7 +87,7 @@ app.post('/user/login', async (req, res) => {
                 DeviceId: deviceId,
                 Username: generateRandomTag(),
                 Gems: 99999,
-                FreeGems: 99999,
+                Dust: 9999,
                 Crowns: 9999,
                 SkillRating: 5000,
                 Experience: 10000,
@@ -93,7 +102,7 @@ app.post('/user/login', async (req, res) => {
                 DeviceId: user.DeviceId,
                 Username: user.Username,
                 Gems: user.Gems,
-                FreeGems: user.FreeGems,
+                Dust: user.Dust,
                 Crowns: user.Crowns,
                 SkillRating: user.SkillRating,
                 Experience: user.Experience,
