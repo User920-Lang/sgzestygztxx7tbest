@@ -13,6 +13,7 @@ if (MONGO_URI) {
     mongoose.connect(MONGO_URI).catch(err => console.error("Erro no Mongo:", err));
 }
 
+// Modelos do Banco de Dados
 const userSchema = new mongoose.Schema({
     DeviceId: { type: String, required: true, unique: true },
     Username: { type: String, required: true },
@@ -42,6 +43,7 @@ function generateRandomTag() {
     return `StumbleZesty#${code}`;
 }
 
+// Rota de Autenticação / Auth Check
 app.get('/auth', (req, res) => {
     try {
         const hash = req.query.hash;
@@ -54,6 +56,7 @@ app.get('/auth', (req, res) => {
     }
 });
 
+// Rota do Shared (Lê o arquivo Shared.json)
 app.all('/shared/:version/:type', (req, res) => {
     const sharedPath = path.join(__dirname, 'Shared.json');
 
@@ -72,6 +75,7 @@ app.all('/shared/:version/:type', (req, res) => {
     });
 });
 
+// Rota de Login do Usuário
 app.post('/user/login', async (req, res) => {
     try {
         const deviceId = req.body.DeviceId;
@@ -87,7 +91,7 @@ app.post('/user/login', async (req, res) => {
                 DeviceId: deviceId,
                 Username: generateRandomTag(),
                 Gems: 99999,
-                Dust: 9999,
+                FreeGems: 99999,
                 Crowns: 9999,
                 SkillRating: 5000,
                 Experience: 10000,
@@ -102,7 +106,7 @@ app.post('/user/login', async (req, res) => {
                 DeviceId: user.DeviceId,
                 Username: user.Username,
                 Gems: user.Gems,
-                Dust: user.Dust,
+                FreeGems: user.FreeGems,
                 Crowns: user.Crowns,
                 SkillRating: user.SkillRating,
                 Experience: user.Experience,
@@ -118,6 +122,7 @@ app.post('/user/login', async (req, res) => {
     }
 });
 
+// Rota de Atualização de Nick
 app.post('/user/update', async (req, res) => {
     try {
         const { Username } = req.body;
@@ -156,6 +161,64 @@ app.post('/user/update', async (req, res) => {
         return res.status(500).json({ error: error.message });
     }
 });
+
+// --- ROTAS DO RANKING (HIGH SCORES) ---
+
+async function getLeaderboardData(sortField) {
+    const sortOption = {};
+    sortOption[sortField] = -1; // Ordena do maior para o menor
+
+    const topUsers = await UserModel.find().sort(sortOption).limit(50);
+
+    return topUsers.map((u, index) => ({
+        Rank: index + 1,
+        User: {
+            Id: 100000 + index,
+            Username: u.Username,
+            Crowns: u.Crowns || 0,
+            SkillRating: u.SkillRating || 0
+        },
+        Score: sortField === 'Crowns' ? u.Crowns : u.SkillRating
+    }));
+}
+
+// Handlers genéricos para capturar qualquer padrão de requisição de Ranking que o Unity fizer
+const handleHighscoreList = async (req, res) => {
+    try {
+        const type = (req.params.type || req.query.type || "").toLowerCase();
+        let sortField = 'SkillRating'; // Troféus/Rating por padrão
+
+        if (type.includes('crown') || req.path.includes('crown')) {
+            sortField = 'Crowns';
+        }
+
+        const rankings = await getLeaderboardData(sortField);
+
+        return res.json({
+            Rankings: rankings,
+            UserRank: {
+                Rank: 1,
+                Score: 5000
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+};
+
+// Mapeia todas as possíveis variações de endpoint que o Unity pode chamar no Leaderboard
+app.get('/highscore/list', handleHighscoreList);
+app.post('/highscore/list', handleHighscoreList);
+app.get('/highscores/list', handleHighscoreList);
+app.post('/highscores/list', handleHighscoreList);
+app.get('/highscore/rankings', handleHighscoreList);
+app.post('/highscore/rankings', handleHighscoreList);
+app.get('/highscore/:type', handleHighscoreList);
+app.post('/highscore/:type', handleHighscoreList);
+app.get('/user/highscore', handleHighscoreList);
+app.post('/user/highscore', handleHighscoreList);
+
+// --- ROTAS DE NEWS ---
 
 async function getNewsResponse() {
     let newsList = await NewsModel.find();
