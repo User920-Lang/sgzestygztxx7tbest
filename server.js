@@ -17,13 +17,12 @@ const userSchema = new mongoose.Schema({
     DeviceId: { type: String, required: true, unique: true },
     UserId: { type: Number, required: true },
     Username: { type: String, required: true },
-    Gems: { type: Number, default: 0 },
+    Gems: { type: Number, default: 500 },
     Tokens: { type: Number, default: 0 },
     Crowns: { type: Number, default: 0 },
     SkillRating: { type: Number, default: 0 },
     Experience: { type: Number, default: 0 },
     AuthToken: { type: String, default: "" }
-    banned: { type: false, }
 });
 
 const newsSchema = new mongoose.Schema({
