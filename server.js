@@ -13,7 +13,7 @@ if (MONGO_URI) {
     mongoose.connect(MONGO_URI).catch(err => console.error("Erro no Mongo:", err));
 }
 
-// Schema com Gems (500), Tokens/Dust (250) e Crowns (250)
+// Schema do usuário
 const userSchema = new mongoose.Schema({
     DeviceId: { type: String, required: true, unique: true },
     Username: { type: String, required: true },
@@ -93,7 +93,7 @@ app.all('/shared/:version/:type', (req, res) => {
     });
 });
 
-// Helper para formatar dados do usuario com DUST e Balances
+// Helper para formatar dados do usuário
 function formatUserResponse(user) {
     return {
         Id: 100000,
@@ -160,11 +160,11 @@ app.post('/user/login', async (req, res) => {
     }
 });
 
-// Update Username desconta 100 Gemas
+// Troca de Nick - Lida com /user/updateusername, /user/update e /user/name/change
 const handleUserUpdate = async (req, res) => {
     try {
         const deviceId = extractDeviceId(req);
-        const newUsername = req.body.Username || req.body.Name || req.body.user;
+        const newUsername = req.body.Username || req.body.Name || req.body.user || req.body.username;
 
         if (!deviceId) {
             return res.status(400).json({ error: "DeviceId missing" });
@@ -198,6 +198,7 @@ const handleUserUpdate = async (req, res) => {
     }
 };
 
+app.post('/user/updateusername', handleUserUpdate);
 app.post('/user/update', handleUserUpdate);
 app.post('/user/name/change', handleUserUpdate);
 
@@ -230,7 +231,7 @@ const handleFinishRound = async (req, res) => {
 app.post('/user/round_finish', handleFinishRound);
 app.post('/user/finish', handleFinishRound);
 
-// Highscores / Ranking
+// Ranking / Highscores formatado exatamente para evitar NullReferenceException no RankingViewController
 async function getLeaderboardData(sortField) {
     const sortOption = {};
     sortOption[sortField] = -1;
@@ -262,6 +263,8 @@ const handleHighscoreList = async (req, res) => {
 
         return res.json({
             Rankings: rankings,
+            Ranks: rankings,
+            List: rankings,
             UserRank: {
                 Rank: 1,
                 Score: 0
@@ -280,6 +283,8 @@ app.get('/highscore/rankings', handleHighscoreList);
 app.post('/highscore/rankings', handleHighscoreList);
 app.get('/highscore/:type', handleHighscoreList);
 app.post('/highscore/:type', handleHighscoreList);
+app.get('/user/highscore', handleHighscoreList);
+app.post('/user/highscore', handleHighscoreList);
 
 // News
 async function getNewsResponse() {
