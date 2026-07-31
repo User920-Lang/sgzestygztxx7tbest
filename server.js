@@ -13,7 +13,7 @@ if (MONGO_URI) {
     mongoose.connect(MONGO_URI).catch(err => console.error("Erro no Mongo:", err));
 }
 
-// Schema do Banco de Dados
+// Schema do Usuário
 const userSchema = new mongoose.Schema({
     DeviceId: { type: String, required: true, unique: true },
     Username: { type: String, required: true },
@@ -93,7 +93,7 @@ app.all('/shared/:version/:type', (req, res) => {
     });
 });
 
-// Helper para formatar dados do usuário e evitar NullReference
+// Formatação para evitar NullReferenceException em qualquer View da Unity
 function formatUserResponse(user) {
     return {
         Id: 100000,
@@ -109,7 +109,6 @@ function formatUserResponse(user) {
         Token: user.AuthToken,
         FreeNameChange: false,
         
-        // Saldos das moedas
         Balances: [
             { Currency: "Gems", Amount: user.Gems },
             { Currency: "Tokens", Amount: user.Tokens },
@@ -123,7 +122,7 @@ function formatUserResponse(user) {
             Crowns: user.Crowns
         },
 
-        // Dados do BattlePass para evitar NullReferenceException no BattlePassButtonHelper
+        // Objeto do BattlePass necessário para o BattlePassButtonHelper.cs
         BattlePass: {
             PassType: "Free",
             PassLevel: 1,
@@ -137,7 +136,6 @@ function formatUserResponse(user) {
             ClaimedRewards: []
         },
 
-        // Desbloqueios visuais
         Skins: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
         Emotes: [],
         Animations: [],
@@ -178,8 +176,8 @@ app.post('/user/login', async (req, res) => {
     }
 });
 
-// Atualização de Username (Desconta 100 Gemas)
-const handleUserUpdate = async (req, res) => {
+// Lógica Unificada para Troca de Nick (Com Custo e Grátis)
+const handleUserUpdate = async (req, res, isFree = false) => {
     try {
         const deviceId = extractDeviceId(req);
         const newUsername = req.body.Username || req.body.Name || req.body.user || req.body.username;
@@ -188,8 +186,8 @@ const handleUserUpdate = async (req, res) => {
             return res.status(400).json({ error: "DeviceId missing" });
         }
 
-        if (!newUsername) {
-            return res.status(400).json({ error: "New Username missing" });
+        if (!newUsername || newUsername.length < 4 || newUsername.length > 24) {
+            return res.status(400).json({ error: "Invalid username length" });
         }
 
         let user = await UserModel.findOne({ DeviceId: deviceId });
@@ -198,13 +196,21 @@ const handleUserUpdate = async (req, res) => {
             return res.status(404).json({ error: "User not found" });
         }
 
-        const COST_PER_CHANGE = 100;
-
-        if (user.Gems < COST_PER_CHANGE) {
-            return res.status(400).json({ error: "Not enough gems" });
+        // Verifica se o nick já está em uso por outro usuário
+        const existingUser = await UserModel.findOne({ Username: newUsername });
+        if (existingUser && existingUser.DeviceId !== deviceId) {
+            return res.status(400).json({ error: "NAME_TAKEN" });
         }
 
-        user.Gems -= COST_PER_CHANGE;
+        // Se não for grátis, faz a verificação de gemas (100 Gemas)
+        if (!isFree) {
+            const COST_PER_CHANGE = 100;
+            if (user.Gems < COST_PER_CHANGE) {
+                return res.status(400).json({ error: "NOT_ENOUGH_GEMS" });
+            }
+            user.Gems -= COST_PER_CHANGE;
+        }
+
         user.Username = newUsername;
         await user.save();
 
@@ -216,9 +222,11 @@ const handleUserUpdate = async (req, res) => {
     }
 };
 
-app.post('/user/updateusername', handleUserUpdate);
-app.post('/user/update', handleUserUpdate);
-app.post('/user/name/change', handleUserUpdate);
+// Endpoints chamados pela Unity
+app.post('/user/updateusername', (req, res) => handleUserUpdate(req, res, false));
+app.post('/user/updateusernamefree', (req, res) => handleUserUpdate(req, res, true));
+app.post('/user/update', (req, res) => handleUserUpdate(req, res, false));
+app.post('/user/name/change', (req, res) => handleUserUpdate(req, res, false));
 
 // Fim de Partida
 const handleFinishRound = async (req, res) => {
