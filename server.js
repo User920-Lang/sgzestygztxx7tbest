@@ -52,18 +52,24 @@ app.get('/auth', (req, res) => {
     }
 });
 
-// Correção do /shared para aceitar GET e POST e responder o formato esperado pelo Unity
-const sharedHandler = (req, res) => {
-    return res.json({
-        Shared: {
-            Version: parseInt(req.params.version) || 1766,
-            Type: req.params.type || "LIVE"
-        }
-    });
+// Configuração completa do Shared para carregar a economia e liberar as Gemas/Tokens na tela
+const sharedData = {
+    "round_time": 180,
+    "max_players": 32,
+    "version": "0.33",
+    "economy": {
+        "gems_price": 0,
+        "tokens_price": 0
+    }
 };
 
-app.get('/shared/:version/:type', sharedHandler);
-app.post('/shared/:version/:type', sharedHandler);
+const handleShared = (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(200).send(JSON.stringify(sharedData));
+};
+
+app.get('/shared/:version/:type', handleShared);
+app.post('/shared/:version/:type', handleShared);
 
 app.post('/user/login', async (req, res) => {
     try {
@@ -89,7 +95,6 @@ app.post('/user/login', async (req, res) => {
             await user.save();
         }
 
-        // Retorno formatado de forma que o C# leia os campos diretos e a lista Balances
         return res.json({
             User: {
                 Id: 100000,
