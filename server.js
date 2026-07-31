@@ -8,7 +8,7 @@ const MONGO_URI = process.env.MONGO_URI;
 const HASH_CODE = "GZTXX7-189jaiu-&B!(p093=2-0!#45v";
 
 if (MONGO_URI) {
-    mongoose.connect(MONGO_URI).catch(err => console.error("Erro no Mongo:", err));
+    mongoose.connect(MONGO_URI).catch(err => console.error(err));
 }
 
 const userSchema = new mongoose.Schema({
@@ -52,18 +52,16 @@ app.get('/auth', (req, res) => {
     }
 });
 
-const handleShared = (req, res) => {
+app.all('/shared/:version/:type', (req, res) => {
     return res.json({
         "round_time": 180,
         "max_players": 32,
-        "version": "0.33",
         "disable_ads": true,
-        "free_spins": 999
+        "free_spins": 999,
+        "version": req.params.version || "1766",
+        "type": req.params.type || "LIVE"
     });
-};
-
-app.get('/shared/:version/:type', handleShared);
-app.post('/shared/:version/:type', handleShared);
+});
 
 app.post('/user/login', async (req, res) => {
     try {
@@ -100,7 +98,7 @@ app.post('/user/login', async (req, res) => {
                 SkillRating: user.SkillRating,
                 Experience: user.Experience,
                 Token: user.Token,
-                Skins: [],
+                Skins: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
                 Emotes: [],
                 Animations: [],
                 Footsteps: []
