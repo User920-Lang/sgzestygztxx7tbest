@@ -81,10 +81,17 @@ function extractDeviceId(req) {
 }
 
 function formatUserResponse(user) {
+    const userId = user.UserId || 1;
+    const username = user.Username || "StumbleZesty#Player";
+
     return {
-        Id: user.UserId || 1,
+        Id: userId,
+        id: userId,
+        user_id: userId,
         DeviceId: user.DeviceId,
-        Username: user.Username,
+        Username: username,
+        username: username,
+        Name: username,
         Country: "US",
         Gems: user.Gems,
         Tokens: user.Tokens,
@@ -160,10 +167,10 @@ app.all('/shared/:version/:type', (req, res) => {
 
 app.post('/user/login', async (req, res) => {
     try {
-        const deviceId = extractDeviceId(req);
+        let deviceId = extractDeviceId(req);
 
         if (!deviceId) {
-            return res.status(400).json({ error: "DeviceId missing" });
+            deviceId = `device_${Date.now()}`;
         }
 
         let user = await UserModel.findOne({ DeviceId: deviceId });
@@ -183,8 +190,11 @@ app.post('/user/login', async (req, res) => {
             await user.save();
         }
 
+        const formatted = formatUserResponse(user);
         return res.json({
-            User: formatUserResponse(user)
+            User: formatted,
+            user: formatted,
+            ...formatted
         });
     } catch (error) {
         return res.status(500).json({ error: error.message });
@@ -228,23 +238,16 @@ const handleUserUpdate = async (req, res, isFree = false) => {
                 return res.status(400).json({ error: "NAME_TAKEN" });
             }
 
-            if (!isFree) {
-                const COST_PER_CHANGE = 100;
-                if (user.Gems < COST_PER_CHANGE) {
-                    user.Username = newUsername;
-                } else {
-                    user.Gems -= COST_PER_CHANGE;
-                    user.Username = newUsername;
-                }
-            } else {
-                user.Username = newUsername;
-            }
+            user.Username = newUsername;
         }
 
         await user.save();
 
+        const formatted = formatUserResponse(user);
         return res.json({
-            User: formatUserResponse(user)
+            User: formatted,
+            user: formatted,
+            ...formatted
         });
     } catch (error) {
         return res.status(500).json({ error: error.message });
@@ -270,8 +273,11 @@ const handleFinishRound = async (req, res) => {
             );
 
             if (user) {
+                const formatted = formatUserResponse(user);
                 return res.json({
-                    User: formatUserResponse(user)
+                    User: formatted,
+                    user: formatted,
+                    ...formatted
                 });
             }
         }
