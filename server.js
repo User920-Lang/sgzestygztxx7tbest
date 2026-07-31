@@ -15,10 +15,11 @@ if (MONGO_URI) {
 
 const userSchema = new mongoose.Schema({
     DeviceId: { type: String, required: true, unique: true },
+    UserId: { type: Number, required: true },
     Username: { type: String, required: true },
-    Gems: { type: Number, default: 500 },
-    Tokens: { type: Number, default: 250 },
-    Crowns: { type: Number, default: 250 },
+    Gems: { type: Number, default: 0 },
+    Tokens: { type: Number, default: 0 },
+    Crowns: { type: Number, default: 0 },
     SkillRating: { type: Number, default: 0 },
     Experience: { type: Number, default: 0 },
     AuthToken: { type: String, default: "" }
@@ -34,12 +35,16 @@ const UserModel = mongoose.model('User', userSchema);
 const NewsModel = mongoose.model('News', newsSchema);
 
 function generateRandomTag() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let code = '';
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 8; i++) {
         code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return `StumbleZesty#${code}`;
+}
+
+function generateRandomUserId() {
+    return Math.floor(Math.random() * 1001) + 1;
 }
 
 function extractDeviceId(req) {
@@ -77,7 +82,7 @@ function extractDeviceId(req) {
 
 function formatUserResponse(user) {
     return {
-        Id: 100000,
+        Id: user.UserId || 1,
         DeviceId: user.DeviceId,
         Username: user.Username,
         Country: "US",
@@ -88,7 +93,7 @@ function formatUserResponse(user) {
         SkillRating: user.SkillRating,
         Experience: user.Experience,
         Token: user.AuthToken,
-        FreeNameChange: false,
+        FreeNameChange: true,
         
         Balances: [
             { Currency: "Gems", Amount: user.Gems },
@@ -166,10 +171,11 @@ app.post('/user/login', async (req, res) => {
         if (!user) {
             user = new UserModel({
                 DeviceId: deviceId,
+                UserId: generateRandomUserId(),
                 Username: generateRandomTag(),
-                Gems: 500,
-                Tokens: 250,
-                Crowns: 250,
+                Gems: 0,
+                Tokens: 0,
+                Crowns: 0,
                 SkillRating: 0,
                 Experience: 0,
                 AuthToken: `token_${Date.now()}`
@@ -207,10 +213,11 @@ const handleUserUpdate = async (req, res, isFree = false) => {
         if (!user) {
             user = new UserModel({
                 DeviceId: deviceId || `generated_${Date.now()}`,
+                UserId: generateRandomUserId(),
                 Username: newUsername,
-                Gems: 500,
-                Tokens: 250,
-                Crowns: 250,
+                Gems: 0,
+                Tokens: 0,
+                Crowns: 0,
                 SkillRating: 0,
                 Experience: 0,
                 AuthToken: `token_${Date.now()}`
@@ -224,12 +231,14 @@ const handleUserUpdate = async (req, res, isFree = false) => {
             if (!isFree) {
                 const COST_PER_CHANGE = 100;
                 if (user.Gems < COST_PER_CHANGE) {
-                    return res.status(400).json({ error: "NOT_ENOUGH_GEMS" });
+                    user.Username = newUsername;
+                } else {
+                    user.Gems -= COST_PER_CHANGE;
+                    user.Username = newUsername;
                 }
-                user.Gems -= COST_PER_CHANGE;
+            } else {
+                user.Username = newUsername;
             }
-
-            user.Username = newUsername;
         }
 
         await user.save();
@@ -284,7 +293,7 @@ async function getLeaderboardData(sortField) {
     return topUsers.map((u, index) => ({
         Rank: index + 1,
         User: {
-            Id: 100000 + index,
+            Id: u.UserId || (100000 + index),
             Username: u.Username,
             Crowns: u.Crowns || 0,
             SkillRating: u.SkillRating || 0
