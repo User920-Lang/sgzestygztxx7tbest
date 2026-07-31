@@ -152,18 +152,18 @@ async function getNewsResponse() {
     if (!newsList || newsList.length === 0) {
         return [
             {
-                Header: "BEM-VINDO AO STUMBLE ZESTY!",
-                Message: "Servidor privado ativo! Aproveite todas as skins e recursos liberados.",
+                Header: "OI",
+                Message: "OI.",
                 TimeStamp: "2024-01-01 12:00:00"
             },
             {
-                Header: "NOVO PASSE DE BATALHA",
-                Message: "O novo Stumble Pass já está disponível! Complete as missões e resgate recompensas.",
+                Header: "OI",
+                Message: "WORKIGOU",
                 TimeStamp: "2024-01-02 15:30:00"
             },
             {
-                Header: "MANUTENÇÃO PROGRAMADA",
-                Message: "Fique atento às atualizações do servidor. Bom jogo a todos!",
+                Header: "SGZESTY",
+                Message: "SLA MAN, FAZ O L!",
                 TimeStamp: "2024-01-03 18:00:00"
             }
         ];
