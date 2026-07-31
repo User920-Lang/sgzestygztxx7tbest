@@ -52,20 +52,14 @@ app.get('/auth', (req, res) => {
     }
 });
 
-// Configuração completa do Shared para carregar a economia e liberar as Gemas/Tokens na tela
-const sharedData = {
-    "round_time": 180,
-    "max_players": 32,
-    "version": "0.33",
-    "economy": {
-        "gems_price": 0,
-        "tokens_price": 0
-    }
-};
-
 const handleShared = (req, res) => {
-    res.setHeader('Content-Type', 'application/json');
-    return res.status(200).send(JSON.stringify(sharedData));
+    return res.json({
+        "round_time": 180,
+        "max_players": 32,
+        "version": "0.33",
+        "disable_ads": true,
+        "free_spins": 999
+    });
 };
 
 app.get('/shared/:version/:type', handleShared);
@@ -106,10 +100,10 @@ app.post('/user/login', async (req, res) => {
                 SkillRating: user.SkillRating,
                 Experience: user.Experience,
                 Token: user.Token,
-                Balances: [
-                    { Currency: "Gems", Amount: user.Gems },
-                    { Currency: "Crowns", Amount: user.Crowns }
-                ]
+                Skins: [],
+                Emotes: [],
+                Animations: [],
+                Footsteps: []
             }
         });
     } catch (error) {
