@@ -93,7 +93,7 @@ app.all('/shared/:version/:type', (req, res) => {
     });
 });
 
-// Função Helper para formatar o usuário exatamente como o C# desserializa
+// Helper para formatar dados do usuario com DUST e Balances
 function formatUserResponse(user) {
     return {
         Id: 100000,
@@ -102,12 +102,12 @@ function formatUserResponse(user) {
         Country: "US",
         Gems: user.Gems,
         Tokens: user.Tokens,
+        Dust: user.Tokens,
         Crowns: user.Crowns,
         SkillRating: user.SkillRating,
         Experience: user.Experience,
         Token: user.AuthToken,
         FreeNameChange: false,
-        // Balances é onde o C# da v0.33 busca moedas/dust/tokens
         Balances: [
             { Currency: "Gems", Amount: user.Gems },
             { Currency: "Tokens", Amount: user.Tokens },
@@ -177,4 +177,150 @@ const handleUserUpdate = async (req, res) => {
         let user = await UserModel.findOne({ DeviceId: deviceId });
 
         if (!user) {
-            return res.
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        const COST_PER_CHANGE = 100;
+
+        if (user.Gems < COST_PER_CHANGE) {
+            return res.status(400).json({ error: "Not enough gems" });
+        }
+
+        user.Gems -= COST_PER_CHANGE;
+        user.Username = newUsername;
+        await user.save();
+
+        return res.json({
+            User: formatUserResponse(user)
+        });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+};
+
+app.post('/user/update', handleUserUpdate);
+app.post('/user/name/change', handleUserUpdate);
+
+// Finish Round
+const handleFinishRound = async (req, res) => {
+    try {
+        const deviceId = extractDeviceId(req);
+        if (deviceId) {
+            const crownsToAdd = req.body.Crowns || req.body.Crown || 1;
+            const ratingToAdd = req.body.SkillRating || req.body.Score || 15;
+
+            const user = await UserModel.findOneAndUpdate(
+                { DeviceId: deviceId },
+                { $inc: { Crowns: crownsToAdd, SkillRating: ratingToAdd } },
+                { new: true }
+            );
+
+            if (user) {
+                return res.json({
+                    User: formatUserResponse(user)
+                });
+            }
+        }
+        return res.json({ success: true });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+};
+
+app.post('/user/round_finish', handleFinishRound);
+app.post('/user/finish', handleFinishRound);
+
+// Highscores / Ranking
+async function getLeaderboardData(sortField) {
+    const sortOption = {};
+    sortOption[sortField] = -1;
+
+    const topUsers = await UserModel.find().sort(sortOption).limit(50);
+
+    return topUsers.map((u, index) => ({
+        Rank: index + 1,
+        User: {
+            Id: 100000 + index,
+            Username: u.Username,
+            Crowns: u.Crowns || 0,
+            SkillRating: u.SkillRating || 0
+        },
+        Score: sortField === 'Crowns' ? u.Crowns : u.SkillRating
+    }));
+}
+
+const handleHighscoreList = async (req, res) => {
+    try {
+        const type = (req.params.type || req.query.type || "").toLowerCase();
+        let sortField = 'SkillRating';
+
+        if (type.includes('crown') || req.path.includes('crown')) {
+            sortField = 'Crowns';
+        }
+
+        const rankings = await getLeaderboardData(sortField);
+
+        return res.json({
+            Rankings: rankings,
+            UserRank: {
+                Rank: 1,
+                Score: 0
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+};
+
+app.get('/highscore/list', handleHighscoreList);
+app.post('/highscore/list', handleHighscoreList);
+app.get('/highscores/list', handleHighscoreList);
+app.post('/highscores/list', handleHighscoreList);
+app.get('/highscore/rankings', handleHighscoreList);
+app.post('/highscore/rankings', handleHighscoreList);
+app.get('/highscore/:type', handleHighscoreList);
+app.post('/highscore/:type', handleHighscoreList);
+
+// News
+async function getNewsResponse() {
+    let newsList = await NewsModel.find();
+
+    if (!newsList || newsList.length === 0) {
+        return [
+            {
+                Header: "BEM-VINDO AO STUMBLE ZESTY!",
+                Message: "Servidor privado ativo! Aproveite todas as skins e recursos liberados.",
+                TimeStamp: "2024-01-01 12:00:00"
+            }
+        ];
+    }
+
+    return newsList.map(item => ({
+        Header: item.Header,
+        Message: item.Message,
+        TimeStamp: item.TimeStamp
+    }));
+}
+
+app.get('/user/news', async (req, res) => {
+    try {
+        const data = await getNewsResponse();
+        return res.json(data);
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/user/news', async (req, res) => {
+    try {
+        const data = await getNewsResponse();
+        return res.json(data);
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Servidor rodando na porta ${PORT}`);
+});
