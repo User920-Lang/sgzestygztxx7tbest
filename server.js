@@ -43,7 +43,6 @@ function generateRandomTag() {
     return `StumbleZesty#${code}`;
 }
 
-// Helper para extrair DeviceId do Body ou Header Authorization
 function extractDeviceId(req) {
     if (req.body && req.body.DeviceId) {
         return req.body.DeviceId;
@@ -62,7 +61,7 @@ function extractDeviceId(req) {
     return null;
 }
 
-// Rota de Autenticação / Auth Check
+// Auth Check
 app.get('/auth', (req, res) => {
     try {
         const hash = req.query.hash;
@@ -75,7 +74,7 @@ app.get('/auth', (req, res) => {
     }
 });
 
-// Rota do Shared (Lê o arquivo Shared.json)
+// Shared Config
 app.all('/shared/:version/:type', (req, res) => {
     const sharedPath = path.join(__dirname, 'Shared.json');
 
@@ -94,7 +93,7 @@ app.all('/shared/:version/:type', (req, res) => {
     });
 });
 
-// Rota de Login do Usuário
+// User Login - Retorna a conta carregada de moedas e liberação de troca de nome
 app.post('/user/login', async (req, res) => {
     try {
         const deviceId = extractDeviceId(req);
@@ -124,12 +123,14 @@ app.post('/user/login', async (req, res) => {
                 Id: 100000,
                 DeviceId: user.DeviceId,
                 Username: user.Username,
+                Country: "US",
                 Gems: user.Gems,
                 FreeGems: user.FreeGems,
                 Crowns: user.Crowns,
                 SkillRating: user.SkillRating,
                 Experience: user.Experience,
                 Token: user.Token,
+                FreeNameChange: true, // Libera a troca de nick gratuita no Unity
                 Skins: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
                 Emotes: [],
                 Animations: [],
@@ -141,8 +142,8 @@ app.post('/user/login', async (req, res) => {
     }
 });
 
-// Rota de Atualização do Nickname (Username)
-app.post('/user/update', async (req, res) => {
+// Atualização de Nome / Update Username
+const handleUserUpdate = async (req, res) => {
     try {
         const deviceId = extractDeviceId(req);
         const newUsername = req.body.Username || req.body.Name || req.body.user;
@@ -172,8 +173,7 @@ app.post('/user/update', async (req, res) => {
                     Crowns: user.Crowns,
                     SkillRating: user.SkillRating,
                     Experience: user.Experience,
-                    Token: user.Token,
-                    Skins: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+                    FreeNameChange: true
                 }
             });
         }
@@ -182,9 +182,12 @@ app.post('/user/update', async (req, res) => {
     } catch (error) {
         return res.status(500).json({ error: error.message });
     }
-});
+};
 
-// Rota de Fim de Partida (Ganhar Coroas/Troféus)
+app.post('/user/update', handleUserUpdate);
+app.post('/user/name/change', handleUserUpdate);
+
+// Fim de Partida (Ganha Coroas/Troféus)
 const handleFinishRound = async (req, res) => {
     try {
         const deviceId = extractDeviceId(req);
@@ -218,8 +221,7 @@ const handleFinishRound = async (req, res) => {
 app.post('/user/round_finish', handleFinishRound);
 app.post('/user/finish', handleFinishRound);
 
-// --- ROTAS DO RANKING (HIGH SCORES) ---
-
+// Highscores / Ranking
 async function getLeaderboardData(sortField) {
     const sortOption = {};
     sortOption[sortField] = -1;
@@ -272,8 +274,7 @@ app.post('/highscore/:type', handleHighscoreList);
 app.get('/user/highscore', handleHighscoreList);
 app.post('/user/highscore', handleHighscoreList);
 
-// --- ROTAS DE NEWS ---
-
+// News
 async function getNewsResponse() {
     let newsList = await NewsModel.find();
 
@@ -283,16 +284,6 @@ async function getNewsResponse() {
                 Header: "BEM-VINDO AO STUMBLE ZESTY!",
                 Message: "Servidor privado ativo! Aproveite todas as skins e recursos liberados.",
                 TimeStamp: "2024-01-01 12:00:00"
-            },
-            {
-                Header: "NOVO PASSE DE BATALHA",
-                Message: "O novo Stumble Pass já está disponível! Complete as missões e resgate recompensas.",
-                TimeStamp: "2024-01-02 15:30:00"
-            },
-            {
-                Header: "MANUTENÇÃO PROGRAMADA",
-                Message: "Fique atento às atualizações do servidor. Bom jogo a todos!",
-                TimeStamp: "2024-01-03 18:00:00"
             }
         ];
     }
