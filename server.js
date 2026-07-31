@@ -13,7 +13,7 @@ if (MONGO_URI) {
     mongoose.connect(MONGO_URI).catch(err => console.error("Erro no Mongo:", err));
 }
 
-// Schema do usuário
+// Schema do Banco de Dados
 const userSchema = new mongoose.Schema({
     DeviceId: { type: String, required: true, unique: true },
     Username: { type: String, required: true },
@@ -93,7 +93,7 @@ app.all('/shared/:version/:type', (req, res) => {
     });
 });
 
-// Helper para formatar dados do usuário
+// Helper para formatar dados do usuário e evitar NullReference
 function formatUserResponse(user) {
     return {
         Id: 100000,
@@ -108,6 +108,8 @@ function formatUserResponse(user) {
         Experience: user.Experience,
         Token: user.AuthToken,
         FreeNameChange: false,
+        
+        // Saldos das moedas
         Balances: [
             { Currency: "Gems", Amount: user.Gems },
             { Currency: "Tokens", Amount: user.Tokens },
@@ -120,6 +122,22 @@ function formatUserResponse(user) {
             Dust: user.Tokens,
             Crowns: user.Crowns
         },
+
+        // Dados do BattlePass para evitar NullReferenceException no BattlePassButtonHelper
+        BattlePass: {
+            PassType: "Free",
+            PassLevel: 1,
+            Level: 1,
+            Exp: 0,
+            ClaimedRewards: []
+        },
+        Pass: {
+            PassType: "Free",
+            Level: 1,
+            ClaimedRewards: []
+        },
+
+        // Desbloqueios visuais
         Skins: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
         Emotes: [],
         Animations: [],
@@ -127,7 +145,7 @@ function formatUserResponse(user) {
     };
 }
 
-// Login
+// User Login
 app.post('/user/login', async (req, res) => {
     try {
         const deviceId = extractDeviceId(req);
@@ -160,7 +178,7 @@ app.post('/user/login', async (req, res) => {
     }
 });
 
-// Troca de Nick - Lida com /user/updateusername, /user/update e /user/name/change
+// Atualização de Username (Desconta 100 Gemas)
 const handleUserUpdate = async (req, res) => {
     try {
         const deviceId = extractDeviceId(req);
@@ -202,7 +220,7 @@ app.post('/user/updateusername', handleUserUpdate);
 app.post('/user/update', handleUserUpdate);
 app.post('/user/name/change', handleUserUpdate);
 
-// Finish Round
+// Fim de Partida
 const handleFinishRound = async (req, res) => {
     try {
         const deviceId = extractDeviceId(req);
@@ -231,7 +249,7 @@ const handleFinishRound = async (req, res) => {
 app.post('/user/round_finish', handleFinishRound);
 app.post('/user/finish', handleFinishRound);
 
-// Ranking / Highscores formatado exatamente para evitar NullReferenceException no RankingViewController
+// Rankings / Leaderboards
 async function getLeaderboardData(sortField) {
     const sortOption = {};
     sortOption[sortField] = -1;
@@ -283,8 +301,6 @@ app.get('/highscore/rankings', handleHighscoreList);
 app.post('/highscore/rankings', handleHighscoreList);
 app.get('/highscore/:type', handleHighscoreList);
 app.post('/highscore/:type', handleHighscoreList);
-app.get('/user/highscore', handleHighscoreList);
-app.post('/user/highscore', handleHighscoreList);
 
 // News
 async function getNewsResponse() {
