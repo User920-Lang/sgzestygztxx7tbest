@@ -1,226 +1,189 @@
-const express = require("express");
-const fs = require("fs");
-const path = require("path");
+const express = require('express');
+const mongoose = require('mongoose');
 
 const app = express();
-const PORT = process.env.PORT || 8080;
+app.use(express.json());
 
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
+const MONGO_URI = process.env.MONGO_URI;
 const HASH_CODE = "GZTXX7-189jaiu-&B!(p093=2-0!#45v";
-const USERS_DIR = path.join(__dirname, "users");
 
-if (!fs.existsSync(USERS_DIR)) {
-  fs.mkdirSync(USERS_DIR, { recursive: true });
-}
+mongoose.connect(MONGO_URI).catch(err => console.error(err));
 
-function generateRandomId() {
-  return Math.floor(Math.random() * 899999) + 100000;
-}
+const userSchema = new mongoose.Schema({
+    DeviceId: { type: String, required: true, unique: true },
+    Username: { type: String, required: true },
+    Gems: { type: Number, default: 100 },
+    FreeGems: { type: Number, default: 0 },
+    Crowns: { type: Number, default: 0 },
+    SkillRating: { type: Number, default: 0 },
+    Experience: { type: Number, default: 0 },
+    Token: { type: String, default: "" }
+});
 
-function generateRandomSuffix(length = 4) {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let result = "";
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-}
+const newsSchema = new mongoose.Schema({
+    Header: { type: String, required: true },
+    Message: { type: String, required: true },
+    TimeStamp: { type: String, required: true }
+});
 
-function loadUserTemplate() {
-  const filePath = path.join(__dirname, "userTemplate.json");
-  if (fs.existsSync(filePath)) {
-    return JSON.parse(fs.readFileSync(filePath, "utf8"));
-  }
-  
-  return {
-    User: {
-      Id: generateRandomId(),
-      Username: "",
-      Name: "",
-      DeviceId: "",
-      Token: "",
-      Country: "XX",
-      Region: "XX",
-      Crowns: 0,
-      Gems: 1000,
-      Coins: 500,
-      Dust: 500,
-      Experience: 0,
-      SkillRating: 0,
-      Level: 1,
-      Banned: false,
-      Created: new Date().toISOString(),
-      LastLogin: new Date().toISOString(),
-      Skins: ["SKIN1"],
-      SkinVariants: [],
-      Emotes: [],
-      Animations: [],
-      Footsteps: [],
-      Rewards: [],
-      Friends: [],
-      Balances: [
-        { Name: "gems", Amount: 1000 },
-        { Name: "coins", Amount: 500 },
-        { Name: "dust", Amount: 500 }
-      ],
-      BattlePass: null
-    },
-    RewardHash: "hash_ok_12345"
-  };
-}
+const UserModel = mongoose.model('User', userSchema);
+const NewsModel = mongoose.model('News', newsSchema);
 
-function saveUserToFile(userData) {
-  try {
-    const userFilePath = path.join(USERS_DIR, `${userData.User.DeviceId}.json`);
-    fs.writeFileSync(userFilePath, JSON.stringify(userData, null, 2), "utf8");
-  } catch (err) {}
-}
-
-function getUserFromFile(deviceId) {
-  try {
-    const userFilePath = path.join(USERS_DIR, `${deviceId}.json`);
-    if (fs.existsSync(userFilePath)) {
-      return JSON.parse(fs.readFileSync(userFilePath, "utf8"));
+function generateRandomTag() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-  } catch (err) {}
-  return null;
+    return `StumbleZesty#${code}`;
 }
 
-app.use((req, res, next) => {
-  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
-  next();
-});
-
-app.get("/auth", (req, res) => {
-  res.setHeader("Content-Type", "text/plain");
-  const { hash } = req.query;
-  if (hash === HASH_CODE) {
-    return res.status(200).send("on");
-  }
-  return res.status(403).send("off");
-});
-
-app.get(["/shared/*", "/shared"], (req, res) => {
-  res.setHeader("Content-Type", "application/json");
-
-  const sharedPath = path.join(__dirname, "Shared.json");
-
-  if (fs.existsSync(sharedPath)) {
+app.get('/auth', (req, res) => {
     try {
-      const rawData = fs.readFileSync(sharedPath, "utf8");
-      return res.status(200).send(rawData);
-    } catch (err) {}
-  }
+        const user = req.query.user;
+        const hash = req.query.hash;
 
-  return res.status(200).send(JSON.stringify({ Version: 1 }));
+        if (hash === HASH_CODE) {
+            return res.send("on");
+        } else {
+            return res.status(401).send("off");
+        }
+    } catch (error) {
+        return res.status(500).send("error");
+    }
 });
 
-app.post("/user/login", (req, res) => {
-  res.setHeader("Content-Type", "application/json");
+app.post('/user/login', async (req, res) => {
+    try {
+        const deviceId = req.body.DeviceId;
 
-  try {
-    const { DeviceId, deviceId } = req.body || {};
-    const activeDeviceId = DeviceId || deviceId || "device_" + generateRandomSuffix(8);
+        if (!deviceId) {
+            return res.status(400).json({ error: "DeviceId missing" });
+        }
 
-    let userData = getUserFromFile(activeDeviceId);
+        let user = await UserModel.findOne({ DeviceId: deviceId });
 
-    if (!userData) {
-      userData = loadUserTemplate();
-      const now = new Date().toISOString();
-      const randomId = generateRandomId();
-      const randomUsername = `StumbleZesty#${generateRandomSuffix(4)}`;
+        if (!user) {
+            user = new UserModel({
+                DeviceId: deviceId,
+                Username: generateRandomTag(),
+                Gems: 100,
+                Crowns: 0,
+                SkillRating: 0,
+                Experience: 0,
+                Token: `token_${Date.now()}`
+            });
+            await user.save();
+        }
 
-      userData.User.Id = randomId;
-      userData.User.Username = randomUsername;
-      userData.User.Name = randomUsername;
-      userData.User.DeviceId = activeDeviceId;
-      userData.User.Token = "session_" + Date.now();
-      userData.User.Country = "XX";
-      userData.User.Region = "XX";
-      userData.User.Created = now;
-      userData.User.LastLogin = now;
-      
-      saveUserToFile(userData);
-    } else {
-      userData.User.LastLogin = new Date().toISOString();
-      saveUserToFile(userData);
+        return res.json({
+            User: {
+                Id: 100000,
+                DeviceId: user.DeviceId,
+                Username: user.Username,
+                Gems: user.Gems,
+                FreeGems: user.FreeGems,
+                Crowns: user.Crowns,
+                SkillRating: user.SkillRating,
+                Experience: user.Experience,
+                Token: user.Token
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/user/update', async (req, res) => {
+    try {
+        const { Username } = req.body;
+        let authHeader = req.headers['authorization'];
+        let deviceId = null;
+
+        if (authHeader) {
+            try {
+                const parsed = JSON.parse(authHeader);
+                deviceId = parsed.DeviceId;
+            } catch (e) {}
+        }
+
+        if (deviceId && Username) {
+            const user = await UserModel.findOneAndUpdate(
+                { DeviceId: deviceId },
+                { Username: Username },
+                { new: true }
+            );
+
+            if (user) {
+                return res.json({
+                    User: {
+                        DeviceId: user.DeviceId,
+                        Username: user.Username,
+                        Gems: user.Gems,
+                        Crowns: user.Crowns,
+                        SkillRating: user.SkillRating
+                    }
+                });
+            }
+        }
+
+        return res.status(400).json({ error: "Update failed" });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+});
+
+async function getNewsResponse() {
+    let newsList = await NewsModel.find();
+
+    if (newsList.length === 0) {
+        return {
+            News: [
+                {
+                    Header: "BEM-VINDO AO STUMBLE ZESTY!",
+                    Message: "Servidor privado ativo! Aproveite todas as skins e recursos liberados.",
+                    TimeStamp: "2024-01-01 12:00:00"
+                },
+                {
+                    Header: "NOVO PASSE DE BATALHA",
+                    Message: "O novo Stumble Pass já está disponível! Complete as missões e resgate recompensas.",
+                    TimeStamp: "2024-01-02 15:30:00"
+                },
+                {
+                    Header: "MANUTENÇÃO PROGRAMADA",
+                    Message: "Fique atento às atualizações do servidor. Bom jogo a todos!",
+                    TimeStamp: "2024-01-03 18:00:00"
+                }
+            ]
+        };
     }
 
-    return res.status(200).send(JSON.stringify(userData));
-  } catch (err) {
-    return res.status(500).json({ error: "Internal Server Error" });
-  }
+    return {
+        News: newsList.map(item => ({
+            Header: item.Header,
+            Message: item.Message,
+            TimeStamp: item.TimeStamp
+        }))
+    };
+}
+
+app.get('/user/news', async (req, res) => {
+    try {
+        const data = await getNewsResponse();
+        return res.json(data);
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
 });
 
-app.post(["/user/update", "/user/updateusername"], (req, res) => {
-  res.setHeader("Content-Type", "application/json");
-  const { DeviceId, deviceId, Username, username } = req.body || {};
-  const activeDeviceId = DeviceId || deviceId || "default_device";
-  const newName = Username || username;
-
-  let userData = getUserFromFile(activeDeviceId);
-  if (userData && newName) {
-    userData.User.Username = newName;
-    userData.User.Name = newName;
-    saveUserToFile(userData);
-  }
-
-  return res.status(200).send(JSON.stringify(userData || { success: true }));
+app.post('/user/news', async (req, res) => {
+    try {
+        const data = await getNewsResponse();
+        return res.json(data);
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
 });
 
-app.get(["/servers", "/servers/*"], (req, res) => {
-  res.setHeader("Content-Type", "application/json");
-  return res.status(200).send(JSON.stringify({
-    Servers: [
-      { Name: "XX", Region: "XX", Ping: 20 }
-    ]
-  }));
-});
-
-app.post(["/round/finish", "/round/finish/*", "/round/finishv2/*"], (req, res) => {
-  res.setHeader("Content-Type", "application/json");
-  return res.status(200).send(JSON.stringify({ success: true, reward: {} }));
-});
-
-app.post("/round/check", (req, res) => {
-  res.setHeader("Content-Type", "application/json");
-  return res.status(200).send(JSON.stringify({ success: true, valid: true }));
-});
-
-app.get(["/economy/*", "/user/refresheconomy", "/battlepass/*"], (req, res) => {
-  res.setHeader("Content-Type", "application/json");
-  return res.status(200).send(JSON.stringify({ success: true }));
-});
-
-app.post(["/economy/*", "/battlepass/*"], (req, res) => {
-  res.setHeader("Content-Type", "application/json");
-  return res.status(200).send(JSON.stringify({ success: true }));
-});
-
-app.get("/highscore/*", (req, res) => {
-  res.setHeader("Content-Type", "application/json");
-  return res.status(200).send(JSON.stringify({ Ranks: [], Highscores: [] }));
-});
-
-app.get(["/user/profile/*", "/user/news", "/user/friend/*"], (req, res) => {
-  res.setHeader("Content-Type", "application/json");
-  return res.status(200).send(JSON.stringify({ success: true }));
-});
-
-app.post(["/user/search", "/user/linkgoogle", "/user/linkfacebook", "/user/cheat"], (req, res) => {
-  res.setHeader("Content-Type", "application/json");
-  return res.status(200).send(JSON.stringify({ success: true }));
-});
-
-app.get(["/onlinecheck", "/tests/*"], (req, res) => {
-  res.setHeader("Content-Type", "text/plain");
-  return res.status(200).send("on");
-});
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT);
