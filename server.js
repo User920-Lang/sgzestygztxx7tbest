@@ -52,14 +52,18 @@ app.get('/auth', (req, res) => {
     }
 });
 
-// Rota obrigatoria do Unity para carregar moedas/configurações da economia
-app.get('/shared/:version/:type', (req, res) => {
+// Correção do /shared para aceitar GET e POST e responder o formato esperado pelo Unity
+const sharedHandler = (req, res) => {
     return res.json({
-        Version: parseInt(req.params.version) || 1766,
-        Type: req.params.type || "LIVE",
-        Config: {}
+        Shared: {
+            Version: parseInt(req.params.version) || 1766,
+            Type: req.params.type || "LIVE"
+        }
     });
-});
+};
+
+app.get('/shared/:version/:type', sharedHandler);
+app.post('/shared/:version/:type', sharedHandler);
 
 app.post('/user/login', async (req, res) => {
     try {
@@ -85,6 +89,7 @@ app.post('/user/login', async (req, res) => {
             await user.save();
         }
 
+        // Retorno formatado de forma que o C# leia os campos diretos e a lista Balances
         return res.json({
             User: {
                 Id: 100000,
@@ -97,8 +102,8 @@ app.post('/user/login', async (req, res) => {
                 Experience: user.Experience,
                 Token: user.Token,
                 Balances: [
-                    { Currency: "gems", Amount: user.Gems },
-                    { Currency: "crowns", Amount: user.Crowns }
+                    { Currency: "Gems", Amount: user.Gems },
+                    { Currency: "Crowns", Amount: user.Crowns }
                 ]
             }
         });
@@ -152,18 +157,18 @@ async function getNewsResponse() {
     if (!newsList || newsList.length === 0) {
         return [
             {
-                Header: "OI",
-                Message: "OI.",
+                Header: "BEM-VINDO AO STUMBLE ZESTY!",
+                Message: "Servidor privado ativo! Aproveite todas as skins e recursos liberados.",
                 TimeStamp: "2024-01-01 12:00:00"
             },
             {
-                Header: "OI",
-                Message: "WORKIGOU",
+                Header: "NOVO PASSE DE BATALHA",
+                Message: "O novo Stumble Pass já está disponível! Complete as missões e resgate recompensas.",
                 TimeStamp: "2024-01-02 15:30:00"
             },
             {
-                Header: "SGZESTY",
-                Message: "SLA MAN, FAZ O L!",
+                Header: "MANUTENÇÃO PROGRAMADA",
+                Message: "Fique atento às atualizações do servidor. Bom jogo a todos!",
                 TimeStamp: "2024-01-03 18:00:00"
             }
         ];
