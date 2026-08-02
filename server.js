@@ -1,20 +1,15 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const fs = require('fs');
-const path = require('path');
 
 const app = express();
 app.use(express.json());
 
-// Middlewares para Log de Requisições (para debugar se necessário)
 app.use((req, res, next) => {
     console.log(`[REQ] ${req.method} -> ${req.url}`);
     next();
 });
 
 const MONGO_URI = process.env.MONGO_URI;
-const HASH_CODE = "GZTXX7-189jaiu-&B!(p093=2-0!#45v";
-
 if (MONGO_URI) {
     mongoose.connect(MONGO_URI).catch(err => console.error("Erro no Mongo:", err));
 }
@@ -103,7 +98,19 @@ function formatUserResponse(user) {
     };
 }
 
-// Rota Geral de Autenticação / Login Principal
+// Rotas /shared
+app.all('/shared*', (req, res) => {
+    return res.json({
+        "round_time": 180,
+        "max_players": 32,
+        "disable_ads": true,
+        "free_spins": 999,
+        "version": "0.44.2",
+        "type": "LIVE"
+    });
+});
+
+// Login
 app.all('/user/login*', async (req, res) => {
     try {
         let deviceId = extractDeviceId(req) || `device_${Date.now()}`;
@@ -132,26 +139,14 @@ app.all('/user/login*', async (req, res) => {
             user: userData,
             Status: "OK",
             status: "OK",
-            Version: "0.37",
-            version: "0.37",
+            Version: "0.44.2",
+            version: "0.44.2",
             Type: "LIVE",
             type: "LIVE"
         });
     } catch (error) {
         return res.status(500).json({ error: error.message });
     }
-});
-
-// Configurações Globais / Shared Config
-app.all('/shared/*', (req, res) => {
-    return res.json({
-        "round_time": 180,
-        "max_players": 32,
-        "disable_ads": true,
-        "free_spins": 999,
-        "version": "0.37",
-        "type": "LIVE"
-    });
 });
 
 // Loja
@@ -166,18 +161,18 @@ app.all('/shop*', (req, res) => {
     });
 });
 
-// Notícias
+// News
 app.all('/user/news*', (req, res) => {
     return res.json([
         {
             Header: "OLD-STUMBLED ON!",
-            Message: "Servidor privado conectado com sucesso.",
+            Message: "Conectado na versão 0.44.2.",
             TimeStamp: "2024-01-01 12:00:00"
         }
     ]);
 });
 
-// Resposta Padrão Catch-All (Evita HTTP 404 em rotas desconhecidas do client)
+// Catch-All
 app.use(async (req, res) => {
     let dummyUser = {
         UserId: 1,
@@ -204,5 +199,5 @@ app.use(async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Servidor Old-Stumbled rodando na porta ${PORT}`);
+    console.log(`Servidor Old-Stumbled v0.44.2 rodando na porta ${PORT}`);
 });
