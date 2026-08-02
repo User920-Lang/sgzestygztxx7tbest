@@ -274,36 +274,50 @@ app.post('/user/updateusernamefree', (req, res) => handleUserUpdate(req, res, tr
 app.post('/user/update', (req, res) => handleUserUpdate(req, res, false));
 app.post('/user/name/change', (req, res) => handleUserUpdate(req, res, false));
 
-// CONFIGURAÇÃO DA LOJA (10.000 GEMAS GRÁTIS)
-const handleShopConfig = (req, res) => {
+// TRATAMENTO DA LOJA E OFERTAS
+const handleShopData = (req, res) => {
     return res.json({
         Offers: [
             {
-                Id: "offer_gems_10000_free",
+                Id: "sg_4k",
                 Type: "Gems",
                 Amount: 10000,
                 Price: 0,
                 IsFree: true,
                 Title: "10000 GEMAS GRÁTIS",
                 CostType: "Free"
+            },
+            {
+                Id: "dust_pack1",
+                Type: "Tokens",
+                Amount: 999999,
+                Price: 0,
+                IsFree: true,
+                Title: "TOKENS GRÁTIS",
+                CostType: "Free"
+            },
+            {
+                Id: "dust_pack2",
+                Type: "Tokens",
+                Amount: 999999,
+                Price: 0,
+                IsFree: true,
+                Title: "TOKENS GRÁTIS",
+                CostType: "Free"
             }
         ],
         Items: [
-            {
-                Id: "item_gems_10000",
-                Type: "Gems",
-                Amount: 10000,
-                Price: 0,
-                IsFree: true
-            }
+            { Id: "sg_4k", Type: "Gems", Amount: 10000, Price: 0 },
+            { Id: "dust_pack1", Type: "Tokens", Amount: 999999, Price: 0 },
+            { Id: "dust_pack2", Type: "Tokens", Amount: 999999, Price: 0 }
         ]
     });
 };
 
-app.get('/shop', handleShopConfig);
-app.post('/shop', handleShopConfig);
-app.get('/user/shop', handleShopConfig);
-app.post('/user/shop', handleShopConfig);
+app.all('/shop*', handleShopData);
+app.all('/user/shop*', handleShopData);
+app.all('/store*', handleShopData);
+app.all('/items*', handleShopData);
 
 const handleWheelSpin = async (req, res) => {
     try {
