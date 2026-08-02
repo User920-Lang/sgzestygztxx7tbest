@@ -17,12 +17,13 @@ const userSchema = new mongoose.Schema({
     DeviceId: { type: String, required: true, unique: true },
     UserId: { type: Number, required: true },
     Username: { type: String, required: true },
-    Gems: { type: Number, default: 500 },
-    Tokens: { type: Number, default: 0 },
+    Gems: { type: Number, default: 10000 },
+    Tokens: { type: Number, default: 999999 },
     Crowns: { type: Number, default: 0 },
     SkillRating: { type: Number, default: 0 },
     Experience: { type: Number, default: 0 },
-    AuthToken: { type: String, default: "" }
+    AuthToken: { type: String, default: "" },
+    banned: { type: Boolean, default: false }
 });
 
 const newsSchema = new mongoose.Schema({
@@ -40,7 +41,7 @@ function generateRandomTag() {
     for (let i = 0; i < 8; i++) {
         code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    return `StumbleZesty#${code}`;
+    return `OldStumbled#${code}`;
 }
 
 function generateRandomUserId() {
@@ -82,7 +83,7 @@ function extractDeviceId(req) {
 
 function formatUserResponse(user) {
     const userId = user.UserId || 1;
-    const username = user.Username || "StumbleZesty#Player";
+    const username = user.Username || "OldStumbled#Player";
 
     return {
         Id: userId,
@@ -181,14 +182,17 @@ app.post('/user/login', async (req, res) => {
                 DeviceId: deviceId,
                 UserId: generateRandomUserId(),
                 Username: generateRandomTag(),
-                Gems: 500,
-                Tokens: 0,
+                Gems: 10000,
+                Tokens: 999999,
                 Crowns: 0,
                 SkillRating: 0,
                 Experience: 0,
                 banned: false,
                 AuthToken: `token_${Date.now()}`
             });
+            await user.save();
+        } else {
+            user.banned = false;
             await user.save();
         }
 
@@ -227,8 +231,8 @@ const handleUserUpdate = async (req, res, isFree = false) => {
                 DeviceId: deviceId || `generated_${Date.now()}`,
                 UserId: generateRandomUserId(),
                 Username: newUsername,
-                Gems: 500,
-                Tokens: 0,
+                Gems: 10000,
+                Tokens: 999999,
                 Crowns: 0,
                 SkillRating: 0,
                 Experience: 0,
@@ -241,9 +245,17 @@ const handleUserUpdate = async (req, res, isFree = false) => {
                 return res.status(400).json({ error: "NAME_TAKEN" });
             }
 
+            if (!isFree) {
+                if (user.Gems < 100) {
+                    return res.status(400).json({ error: "INSUFFICIENT_GEMS" });
+                }
+                user.Gems -= 100;
+            }
+
             user.Username = newUsername;
         }
 
+        user.banned = false;
         await user.save();
 
         const formatted = formatUserResponse(user);
@@ -262,6 +274,50 @@ app.post('/user/updateusernamefree', (req, res) => handleUserUpdate(req, res, tr
 app.post('/user/update', (req, res) => handleUserUpdate(req, res, false));
 app.post('/user/name/change', (req, res) => handleUserUpdate(req, res, false));
 
+const handleWheelSpin = async (req, res) => {
+    try {
+        const deviceId = extractDeviceId(req);
+        let user = null;
+        if (deviceId) {
+            user = await UserModel.findOne({ DeviceId: deviceId });
+        }
+
+        const wheelItems = [
+            { Type: "Skin", Id: "0", Name: "Skin 0" },
+            { Type: "Skin", Id: "1", Name: "Skin 1" },
+            { Type: "Gems", Amount: 100 },
+            { Type: "Tokens", Amount: 50 },
+            { Type: "Skin", Id: "2", Name: "Skin 2" }
+        ];
+
+        const prize = wheelItems[Math.floor(Math.random() * wheelItems.length)];
+
+        if (user) {
+            if (prize.Type === "Gems") user.Gems += prize.Amount;
+            if (prize.Type === "Tokens") user.Tokens += prize.Amount;
+            user.banned = false;
+            await user.save();
+        }
+
+        const formatted = user ? formatUserResponse(user) : null;
+
+        return res.json({
+            User: formatted,
+            user: formatted,
+            Prize: prize,
+            prize: prize,
+            Items: wheelItems,
+            items: wheelItems
+        });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+};
+
+app.post('/wheel/spin', handleWheelSpin);
+app.get('/wheel/spin', handleWheelSpin);
+app.post('/user/wheel', handleWheelSpin);
+
 const handleFinishRound = async (req, res) => {
     try {
         const deviceId = extractDeviceId(req);
@@ -271,7 +327,7 @@ const handleFinishRound = async (req, res) => {
 
             const user = await UserModel.findOneAndUpdate(
                 { DeviceId: deviceId },
-                { $inc: { Crowns: crownsToAdd, SkillRating: ratingToAdd } },
+                { $inc: { Crowns: crownsToAdd, SkillRating: ratingToAdd }, $set: { banned: false } },
                 { new: true }
             );
 
@@ -351,7 +407,7 @@ async function getNewsResponse() {
     if (!newsList || newsList.length === 0) {
         return [
             {
-                Header: "BEM-VINDO AO STUMBLE ZESTY!",
+                Header: "BEM-VINDO AO OLD-STUMBLED!",
                 Message: "Servidor privado ativo! Aproveite todas as skins e recursos liberados.",
                 TimeStamp: "2024-01-01 12:00:00"
             }
