@@ -295,7 +295,7 @@ const handleShopData = (req, res) => {
     return res.json({
         Offers: [
             {
-                Id: "sg_4k",
+                Id: "gems_300",
                 Type: "Gems",
                 Amount: 10000,
                 Price: 0,
@@ -304,17 +304,8 @@ const handleShopData = (req, res) => {
                 CostType: "Free"
             },
             {
-                Id: "dust_pack1",
-                Type: "Tokens",
-                Amount: 999999,
-                Price: 0,
-                IsFree: true,
-                Title: "TOKENS GRÁTIS",
-                CostType: "Free"
-            },
-            {
-                Id: "dust_pack2",
-                Type: "Tokens",
+                Id: "gems_800",
+                Type: "Gems",
                 Amount: 999999,
                 Price: 0,
                 IsFree: true,
@@ -323,9 +314,8 @@ const handleShopData = (req, res) => {
             }
         ],
         Items: [
-            { Id: "sg_4k", Type: "Gems", Amount: 10000, Price: 0 },
-            { Id: "dust_pack1", Type: "Tokens", Amount: 999999, Price: 0 },
-            { Id: "dust_pack2", Type: "Tokens", Amount: 999999, Price: 0 }
+            { Id: "gems_300", Type: "Gems", Amount: 10000, Price: 0 },
+            { Id: "gems_800", Type: "Gems", Amount: 999999, Price: 0 }
         ]
     });
 };
