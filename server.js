@@ -6,6 +6,12 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
+// Middlewares para Log de Requisições (para debugar se necessário)
+app.use((req, res, next) => {
+    console.log(`[REQ] ${req.method} -> ${req.url}`);
+    next();
+});
+
 const MONGO_URI = process.env.MONGO_URI;
 const HASH_CODE = "GZTXX7-189jaiu-&B!(p093=2-0!#45v";
 
@@ -97,8 +103,8 @@ function formatUserResponse(user) {
     };
 }
 
-// Rota de Autenticação / Login Principal
-app.post('/user/login', async (req, res) => {
+// Rota Geral de Autenticação / Login Principal
+app.all('/user/login*', async (req, res) => {
     try {
         let deviceId = extractDeviceId(req) || `device_${Date.now()}`;
         let user = await UserModel.findOne({ DeviceId: deviceId });
@@ -126,8 +132,8 @@ app.post('/user/login', async (req, res) => {
             user: userData,
             Status: "OK",
             status: "OK",
-            Version: "0.44.2",
-            version: "0.44.2",
+            Version: "0.37",
+            version: "0.37",
             Type: "LIVE",
             type: "LIVE"
         });
@@ -136,17 +142,19 @@ app.post('/user/login', async (req, res) => {
     }
 });
 
-app.all('/shared/:version/:type', (req, res) => {
+// Configurações Globais / Shared Config
+app.all('/shared/*', (req, res) => {
     return res.json({
         "round_time": 180,
         "max_players": 32,
         "disable_ads": true,
         "free_spins": 999,
-        "version": req.params.version || "0.37",
-        "type": req.params.type || "LIVE"
+        "version": "0.37",
+        "type": "LIVE"
     });
 });
 
+// Loja
 app.all('/shop*', (req, res) => {
     return res.json({
         Offers: [
@@ -158,7 +166,8 @@ app.all('/shop*', (req, res) => {
     });
 });
 
-app.all('/user/news', (req, res) => {
+// Notícias
+app.all('/user/news*', (req, res) => {
     return res.json([
         {
             Header: "OLD-STUMBLED ON!",
@@ -166,6 +175,31 @@ app.all('/user/news', (req, res) => {
             TimeStamp: "2024-01-01 12:00:00"
         }
     ]);
+});
+
+// Resposta Padrão Catch-All (Evita HTTP 404 em rotas desconhecidas do client)
+app.use(async (req, res) => {
+    let dummyUser = {
+        UserId: 1,
+        Username: "OldStumbled#Player",
+        Gems: 10000,
+        Tokens: 999999,
+        Crowns: 0,
+        SkillRating: 0,
+        Experience: 0,
+        AuthToken: "token_default",
+        DeviceId: "device_default"
+    };
+    const userData = formatUserResponse(dummyUser);
+
+    return res.json({
+        Status: "OK",
+        status: "OK",
+        User: userData,
+        user: userData,
+        Version: "0.44.2",
+        version: "0.44.2"
+    });
 });
 
 const PORT = process.env.PORT || 3000;
