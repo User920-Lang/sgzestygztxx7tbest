@@ -158,7 +158,7 @@ app.get('/shared', handleSharedConfig);
 app.post('/shared', handleSharedConfig);
 app.all('/shared*', handleSharedConfig);
 
-app.all(['/shop*', '/user/shop*'], (req, res) => {
+app.all(['/shop*', '/user/shop'], (req, res) => {
     return res.json({
         "Status": "OK",
         "status": "OK",
@@ -235,12 +235,12 @@ const handleClaimReward = async (req, res) => {
     });
 };
 
-app.all('/user/spin*', handleClaimReward);
-app.all('/round/spin*', handleClaimReward);
-app.all('/shop/claim*', handleClaimReward);
-app.all('/shop/purchase*', handleClaimReward);
+app.all('/user/spin', handleClaimReward);
+app.all('/round/spin', handleClaimReward);
+app.all('/shop/claim', handleClaimReward);
+app.all('/shop/purchase', handleClaimReward);
 
-app.all('/user/login*', async (req, res) => {
+app.all('/user/login', async (req, res) => {
     try {
         let deviceId = extractDeviceId(req) || `device_${Date.now()}`;
         let user = await UserModel.findOne({ DeviceId: deviceId });
