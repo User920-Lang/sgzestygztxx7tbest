@@ -137,7 +137,15 @@ const handleSharedConfig = (req, res) => {
         "customPartyEnabled": true,
         "wheel": {
             "free_spins": 999,
-            "cost_gems": 0
+            "freeSpins": 999,
+            "cost_gems": 0,
+            "costGems": 0
+        },
+        "Wheel": {
+            "free_spins": 999,
+            "freeSpins": 999,
+            "cost_gems": 0,
+            "costGems": 0
         },
         "maps": ["BlockDash", "LaserTracer", "CannonClimb", "PivotPush", "FloorFlip"],
         "Maps": ["BlockDash", "LaserTracer", "CannonClimb", "PivotPush", "FloorFlip"]
@@ -146,6 +154,8 @@ const handleSharedConfig = (req, res) => {
 
 app.get('/shared/:version/:type', handleSharedConfig);
 app.post('/shared/:version/:type', handleSharedConfig);
+app.get('/shared', handleSharedConfig);
+app.post('/shared', handleSharedConfig);
 app.all('/shared*', handleSharedConfig);
 
 app.all(['/shop*', '/user/shop*'], (req, res) => {
