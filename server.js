@@ -72,18 +72,18 @@ function formatUserResponse(user) {
         name: username,
         Country: "US",
         country: "US",
-        Gems: user.Gems,
-        gems: user.Gems,
-        Tokens: user.Tokens,
-        tokens: user.Tokens,
-        Dust: user.Tokens,
-        dust: user.Tokens,
-        Crowns: user.Crowns,
-        crowns: user.Crowns,
-        SkillRating: user.SkillRating,
-        skillRating: user.SkillRating,
-        Experience: user.Experience,
-        experience: user.Experience,
+        Gems: user.Gems || 10000,
+        gems: user.Gems || 10000,
+        Tokens: user.Tokens || 999999,
+        tokens: user.Tokens || 999999,
+        Dust: user.Tokens || 999999,
+        dust: user.Tokens || 999999,
+        Crowns: user.Crowns || 0,
+        crowns: user.Crowns || 0,
+        SkillRating: user.SkillRating || 0,
+        skillRating: user.SkillRating || 0,
+        Experience: user.Experience || 0,
+        experience: user.Experience || 0,
         Token: user.AuthToken || "token_default",
         token: user.AuthToken || "token_default",
         banned: false,
@@ -100,7 +100,6 @@ function formatUserResponse(user) {
     };
 }
 
-// 1. Rota Auth
 app.get('/auth', (req, res) => {
     try {
         const hash = req.query.hash;
@@ -113,8 +112,10 @@ app.get('/auth', (req, res) => {
     }
 });
 
-// 2. Rota Shared Completa (Resolve o bug do Shared e da Roleta)
 const handleSharedConfig = (req, res) => {
+    const version = req.params.version || req.query.version || "0.44.2";
+    const type = req.params.type || req.query.type || "LIVE";
+
     return res.json({
         "round_time": 180,
         "roundTime": 180,
@@ -124,10 +125,10 @@ const handleSharedConfig = (req, res) => {
         "disableAds": true,
         "free_spins": 999,
         "freeSpins": 999,
-        "version": "0.44.2",
-        "Version": "0.44.2",
-        "type": "LIVE",
-        "Type": "LIVE",
+        "version": version,
+        "Version": version,
+        "type": type,
+        "Type": type,
         "maintenance": false,
         "Maintenance": false,
         "force_update": false,
@@ -138,14 +139,54 @@ const handleSharedConfig = (req, res) => {
             "free_spins": 999,
             "cost_gems": 0
         },
-        "maps": ["BlockDash", "LaserTracer", "CannonClimb", "PivotPush", "FloorFlip"]
+        "maps": ["BlockDash", "LaserTracer", "CannonClimb", "PivotPush", "FloorFlip"],
+        "Maps": ["BlockDash", "LaserTracer", "CannonClimb", "PivotPush", "FloorFlip"]
     });
 };
 
+app.get('/shared/:version/:type', handleSharedConfig);
+app.post('/shared/:version/:type', handleSharedConfig);
 app.all('/shared*', handleSharedConfig);
 
-// 3. Endpoint da Roleta (Giro / Spin) - Resolve o "Waiting..."
-const handleSpin = async (req, res) => {
+app.all(['/shop*', '/user/shop*'], (req, res) => {
+    return res.json({
+        "Status": "OK",
+        "status": "OK",
+        "Offers": [
+            {
+                "Id": "wheel_free",
+                "id": "wheel_free",
+                "Type": "Wheel",
+                "type": "Wheel",
+                "FreeSpins": 999,
+                "freeSpins": 999,
+                "IsFree": true,
+                "isFree": true,
+                "Price": 0,
+                "price": 0
+            }
+        ],
+        "offers": [
+            {
+                "Id": "wheel_free",
+                "id": "wheel_free",
+                "Type": "Wheel",
+                "type": "Wheel",
+                "FreeSpins": 999,
+                "freeSpins": 999,
+                "IsFree": true,
+                "isFree": true,
+                "Price": 0,
+                "price": 0
+            }
+        ],
+        "Items": [
+            { "Id": "gems_300", "Type": "Gems", "Amount": 10000, "Price": 0 }
+        ]
+    });
+});
+
+const handleClaimReward = async (req, res) => {
     let deviceId = extractDeviceId(req) || "device_default";
     let user = await UserModel.findOne({ DeviceId: deviceId });
 
@@ -159,29 +200,36 @@ const handleSpin = async (req, res) => {
     const userData = formatUserResponse(user);
 
     return res.json({
-        Status: "OK",
-        status: "OK",
-        Reward: {
-            Type: "Gems",
-            Amount: 100,
-            Id: "gems_100"
+        "Status": "OK",
+        "status": "OK",
+        "Success": true,
+        "success": true,
+        "Reward": {
+            "Type": "Gems",
+            "type": "Gems",
+            "Amount": 100,
+            "amount": 100,
+            "Id": "gems_100",
+            "id": "gems_100"
         },
-        reward: {
-            Type: "Gems",
-            Amount: 100,
-            Id: "gems_100"
+        "reward": {
+            "Type": "Gems",
+            "type": "Gems",
+            "Amount": 100,
+            "amount": 100,
+            "Id": "gems_100",
+            "id": "gems_100"
         },
-        User: userData,
-        user: userData
+        "User": userData,
+        "user": userData
     });
 };
 
-// Rotas que o jogo pode chamar ao clicar na Roleta
-app.all('/user/spin*', handleSpin);
-app.all('/round/spin*', handleSpin);
-app.all('/shop/claim*', handleSpin);
+app.all('/user/spin*', handleClaimReward);
+app.all('/round/spin*', handleClaimReward);
+app.all('/shop/claim*', handleClaimReward);
+app.all('/shop/purchase*', handleClaimReward);
 
-// 4. Login
 app.all('/user/login*', async (req, res) => {
     try {
         let deviceId = extractDeviceId(req) || `device_${Date.now()}`;
@@ -220,19 +268,6 @@ app.all('/user/login*', async (req, res) => {
     }
 });
 
-// 5. Loja
-app.all('/shop*', (req, res) => {
-    return res.json({
-        Offers: [
-            { Id: "gems_300", Type: "Gems", Amount: 10000, Price: 0, IsFree: true }
-        ],
-        Items: [
-            { Id: "gems_300", Type: "Gems", Amount: 10000, Price: 0 }
-        ]
-    });
-});
-
-// 6. News
 app.all('/user/news*', (req, res) => {
     return res.json([
         {
@@ -243,7 +278,6 @@ app.all('/user/news*', (req, res) => {
     ]);
 });
 
-// 7. Catch-All
 app.use(async (req, res) => {
     let dummyUser = {
         UserId: 1,
