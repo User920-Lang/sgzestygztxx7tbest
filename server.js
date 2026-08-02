@@ -26,14 +26,7 @@ const userSchema = new mongoose.Schema({
     banned: { type: Boolean, default: false }
 });
 
-const newsSchema = new mongoose.Schema({
-    Header: { type: String, required: true },
-    Message: { type: String, required: true },
-    TimeStamp: { type: String, required: true }
-});
-
 const UserModel = mongoose.model('User', userSchema);
-const NewsModel = mongoose.model('News', newsSchema);
 
 function generateRandomTag() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -45,39 +38,17 @@ function generateRandomTag() {
 }
 
 function generateRandomUserId() {
-    return Math.floor(Math.random() * 1001) + 1;
+    return Math.floor(Math.random() * 10000) + 1;
 }
 
 function extractDeviceId(req) {
     if (req.body) {
         if (req.body.DeviceId) return req.body.DeviceId;
         if (req.body.deviceId) return req.body.deviceId;
-        if (req.body.device_id) return req.body.device_id;
     }
-
     const headers = req.headers || {};
     if (headers['deviceid']) return headers['deviceid'];
     if (headers['device-id']) return headers['device-id'];
-    if (headers['x-device-id']) return headers['x-device-id'];
-
-    const authHeader = headers['authorization'];
-    if (authHeader) {
-        try {
-            const parsed = JSON.parse(authHeader);
-            if (parsed.DeviceId) return parsed.DeviceId;
-            if (parsed.deviceId) return parsed.deviceId;
-        } catch (e) {
-            if (typeof authHeader === 'string' && authHeader.length > 5) {
-                return authHeader;
-            }
-        }
-    }
-
-    if (req.query) {
-        if (req.query.DeviceId) return req.query.DeviceId;
-        if (req.query.deviceId) return req.query.deviceId;
-    }
-
     return null;
 }
 
@@ -88,93 +59,48 @@ function formatUserResponse(user) {
     return {
         Id: userId,
         id: userId,
+        UserId: userId,
         user_id: userId,
         DeviceId: user.DeviceId,
+        deviceId: user.DeviceId,
         Username: username,
         username: username,
         Name: username,
+        name: username,
         Country: "US",
+        country: "US",
         Gems: user.Gems,
+        gems: user.Gems,
         Tokens: user.Tokens,
+        tokens: user.Tokens,
         Dust: user.Tokens,
+        dust: user.Tokens,
         Crowns: user.Crowns,
+        crowns: user.Crowns,
         SkillRating: user.SkillRating,
+        skillRating: user.SkillRating,
         Experience: user.Experience,
-        Token: user.AuthToken,
+        experience: user.Experience,
+        Token: user.AuthToken || "token_default",
+        token: user.AuthToken || "token_default",
         banned: false,
         FreeNameChange: true,
-        
-        Balances: [
-            { Currency: "Gems", Amount: user.Gems },
-            { Currency: "Tokens", Amount: user.Tokens },
-            { Currency: "Dust", Amount: user.Tokens },
-            { Currency: "Crowns", Amount: user.Crowns }
-        ],
-        Currencies: {
-            Gems: user.Gems,
-            Tokens: user.Tokens,
-            Dust: user.Tokens,
-            Crowns: user.Crowns
-        },
-
-        BattlePass: {
-            PassType: "Free",
-            PassLevel: 1,
-            Level: 1,
-            Exp: 0,
-            ClaimedRewards: []
-        },
-        Pass: {
-            PassType: "Free",
-            Level: 1,
-            ClaimedRewards: []
-        },
-
+        freeNameChange: true,
         Skins: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
+        skins: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
         Emotes: [],
+        emotes: [],
         Animations: [],
-        Footsteps: []
+        animations: [],
+        Footsteps: [],
+        footsteps: []
     };
 }
 
-app.get('/auth', (req, res) => {
-    try {
-        const hash = req.query.hash;
-        if (hash === HASH_CODE) {
-            return res.send("on");
-        }
-        return res.status(401).send("off");
-    } catch (error) {
-        return res.status(500).send("error");
-    }
-});
-
-app.all('/shared/:version/:type', (req, res) => {
-    const sharedPath = path.join(__dirname, 'Shared.json');
-
-    if (fs.existsSync(sharedPath)) {
-        res.setHeader('Content-Type', 'application/json');
-        return res.sendFile(sharedPath);
-    }
-
-    return res.json({
-        "round_time": 180,
-        "max_players": 32,
-        "disable_ads": true,
-        "free_spins": 999,
-        "version": req.params.version || "1766",
-        "type": req.params.type || "LIVE"
-    });
-});
-
+// Rota de Autenticação / Login Principal
 app.post('/user/login', async (req, res) => {
     try {
-        let deviceId = extractDeviceId(req);
-
-        if (!deviceId) {
-            deviceId = `device_${Date.now()}`;
-        }
-
+        let deviceId = extractDeviceId(req) || `device_${Date.now()}`;
         let user = await UserModel.findOne({ DeviceId: deviceId });
 
         if (!user) {
@@ -191,303 +117,55 @@ app.post('/user/login', async (req, res) => {
                 AuthToken: `token_${Date.now()}`
             });
             await user.save();
-        } else {
-            user.banned = false;
-            await user.save();
         }
 
-        const formattedUser = formatUserResponse(user);
-        const version = req.headers['version'] || req.query.version || "0.37";
+        const userData = formatUserResponse(user);
 
         return res.json({
-            ServerName: "Old-Stumbled",
-            User: formattedUser,
-            user: formattedUser,
-            Version: version,
-            version: version,
-            Type: "LIVE",
-            type: "LIVE",
+            User: userData,
+            user: userData,
             Status: "OK",
             status: "OK",
-            Timestamp: Math.floor(Date.now() / 1000),
-            Config: {
-                Server: "Old-Stumbled",
-                RoundTime: 180,
-                MaxPlayers: 32,
-                DisableAds: true,
-                FreeSpins: 999
-            },
-            ...formattedUser
+            Version: "0.44.2",
+            version: "0.44.2",
+            Type: "LIVE",
+            type: "LIVE"
         });
     } catch (error) {
         return res.status(500).json({ error: error.message });
     }
 });
 
-const handleUserUpdate = async (req, res, isFree = false) => {
-    try {
-        let deviceId = extractDeviceId(req);
-        const newUsername = req.body.Username || req.body.Name || req.body.user || req.body.username;
+app.all('/shared/:version/:type', (req, res) => {
+    return res.json({
+        "round_time": 180,
+        "max_players": 32,
+        "disable_ads": true,
+        "free_spins": 999,
+        "version": req.params.version || "0.37",
+        "type": req.params.type || "LIVE"
+    });
+});
 
-        if (!newUsername || newUsername.length < 4 || newUsername.length > 24) {
-            return res.status(400).json({ error: "Invalid username length" });
-        }
-
-        let user = null;
-
-        if (deviceId) {
-            user = await UserModel.findOne({ DeviceId: deviceId });
-        }
-
-        if (!user) {
-            user = await UserModel.findOne().sort({ _id: -1 });
-        }
-
-        if (!user) {
-            user = new UserModel({
-                DeviceId: deviceId || `generated_${Date.now()}`,
-                UserId: generateRandomUserId(),
-                Username: newUsername,
-                Gems: 10000,
-                Tokens: 999999,
-                Crowns: 0,
-                SkillRating: 0,
-                Experience: 0,
-                banned: false,
-                AuthToken: `token_${Date.now()}`
-            });
-        } else {
-            const existingUser = await UserModel.findOne({ Username: newUsername });
-            if (existingUser && existingUser._id.toString() !== user._id.toString()) {
-                return res.status(400).json({ error: "NAME_TAKEN" });
-            }
-
-            if (!isFree) {
-                if (user.Gems < 100) {
-                    return res.status(400).json({ error: "INSUFFICIENT_GEMS" });
-                }
-                user.Gems -= 100;
-            }
-
-            user.Username = newUsername;
-        }
-
-        user.banned = false;
-        await user.save();
-
-        const formatted = formatUserResponse(user);
-        return res.json({
-            User: formatted,
-            user: formatted,
-            ...formatted
-        });
-    } catch (error) {
-        return res.status(500).json({ error: error.message });
-    }
-};
-
-app.post('/user/updateusername', (req, res) => handleUserUpdate(req, res, false));
-app.post('/user/updateusernamefree', (req, res) => handleUserUpdate(req, res, true));
-app.post('/user/update', (req, res) => handleUserUpdate(req, res, false));
-app.post('/user/name/change', (req, res) => handleUserUpdate(req, res, false));
-
-const handleShopData = (req, res) => {
+app.all('/shop*', (req, res) => {
     return res.json({
         Offers: [
-            {
-                Id: "gems_300",
-                Type: "Gems",
-                Amount: 10000,
-                Price: 0,
-                IsFree: true,
-                Title: "10000 GEMAS GRÁTIS",
-                CostType: "Free"
-            },
-            {
-                Id: "gems_800",
-                Type: "Gems",
-                Amount: 999999,
-                Price: 0,
-                IsFree: true,
-                Title: "TOKENS GRÁTIS",
-                CostType: "Free"
-            }
+            { Id: "gems_300", Type: "Gems", Amount: 10000, Price: 0, IsFree: true }
         ],
         Items: [
-            { Id: "gems_300", Type: "Gems", Amount: 10000, Price: 0 },
-            { Id: "gems_800", Type: "Gems", Amount: 999999, Price: 0 }
+            { Id: "gems_300", Type: "Gems", Amount: 10000, Price: 0 }
         ]
     });
-};
-
-app.all('/shop*', handleShopData);
-app.all('/user/shop*', handleShopData);
-app.all('/store*', handleShopData);
-app.all('/items*', handleShopData);
-
-const handleWheelSpin = async (req, res) => {
-    try {
-        const deviceId = extractDeviceId(req);
-        let user = null;
-        if (deviceId) {
-            user = await UserModel.findOne({ DeviceId: deviceId });
-        }
-
-        const wheelItems = [
-            { Type: "Skin", Id: "0", Name: "Skin 0" },
-            { Type: "Skin", Id: "1", Name: "Skin 1" },
-            { Type: "Gems", Amount: 100 },
-            { Type: "Tokens", Amount: 50 },
-            { Type: "Skin", Id: "2", Name: "Skin 2" }
-        ];
-
-        const prize = wheelItems[Math.floor(Math.random() * wheelItems.length)];
-
-        if (user) {
-            if (prize.Type === "Gems") user.Gems += prize.Amount;
-            if (prize.Type === "Tokens") user.Tokens += prize.Amount;
-            user.banned = false;
-            await user.save();
-        }
-
-        const formatted = user ? formatUserResponse(user) : null;
-
-        return res.json({
-            User: formatted,
-            user: formatted,
-            Prize: prize,
-            prize: prize,
-            Items: wheelItems,
-            items: wheelItems
-        });
-    } catch (error) {
-        return res.status(500).json({ error: error.message });
-    }
-};
-
-app.post('/wheel/spin', handleWheelSpin);
-app.get('/wheel/spin', handleWheelSpin);
-app.post('/user/wheel', handleWheelSpin);
-
-const handleFinishRound = async (req, res) => {
-    try {
-        const deviceId = extractDeviceId(req);
-        if (deviceId) {
-            const crownsToAdd = req.body.Crowns || req.body.Crown || 1;
-            const ratingToAdd = req.body.SkillRating || req.body.Score || 15;
-
-            const user = await UserModel.findOneAndUpdate(
-                { DeviceId: deviceId },
-                { $inc: { Crowns: crownsToAdd, SkillRating: ratingToAdd }, $set: { banned: false } },
-                { new: true }
-            );
-
-            if (user) {
-                const formatted = formatUserResponse(user);
-                return res.json({
-                    User: formatted,
-                    user: formatted,
-                    ...formatted
-                });
-            }
-        }
-        return res.json({ success: true });
-    } catch (error) {
-        return res.status(500).json({ error: error.message });
-    }
-};
-
-app.post('/user/round_finish', handleFinishRound);
-app.post('/user/finish', handleFinishRound);
-
-async function getLeaderboardData(sortField) {
-    const sortOption = {};
-    sortOption[sortField] = -1;
-
-    const topUsers = await UserModel.find().sort(sortOption).limit(50);
-
-    return topUsers.map((u, index) => ({
-        Rank: index + 1,
-        User: {
-            Id: u.UserId || (100000 + index),
-            Username: u.Username,
-            Crowns: u.Crowns || 0,
-            SkillRating: u.SkillRating || 0
-        },
-        Score: sortField === 'Crowns' ? u.Crowns : u.SkillRating
-    }));
-}
-
-const handleHighscoreList = async (req, res) => {
-    try {
-        const type = (req.params.type || req.query.type || "").toLowerCase();
-        let sortField = 'SkillRating';
-
-        if (type.includes('crown') || req.path.includes('crown')) {
-            sortField = 'Crowns';
-        }
-
-        const rankings = await getLeaderboardData(sortField);
-
-        return res.json({
-            Rankings: rankings,
-            Ranks: rankings,
-            List: rankings,
-            UserRank: {
-                Rank: 1,
-                Score: 0
-            }
-        });
-    } catch (error) {
-        return res.status(500).json({ error: error.message });
-    }
-};
-
-app.get('/highscore/list', handleHighscoreList);
-app.post('/highscore/list', handleHighscoreList);
-app.get('/highscores/list', handleHighscoreList);
-app.post('/highscores/list', handleHighscoreList);
-app.get('/highscore/rankings', handleHighscoreList);
-app.post('/highscore/rankings', handleHighscoreList);
-app.get('/highscore/:type', handleHighscoreList);
-app.post('/highscore/:type', handleHighscoreList);
-
-async function getNewsResponse() {
-    let newsList = await NewsModel.find();
-
-    if (!newsList || newsList.length === 0) {
-        return [
-            {
-                Header: "BEM-VINDO AO OLD-STUMBLED!",
-                Message: "Servidor privado ativo! Aproveite todas as skins e recursos liberados.",
-                TimeStamp: "2024-01-01 12:00:00"
-            }
-        ];
-    }
-
-    return newsList.map(item => ({
-        Header: item.Header,
-        Message: item.Message,
-        TimeStamp: item.TimeStamp
-    }));
-}
-
-app.get('/user/news', async (req, res) => {
-    try {
-        const data = await getNewsResponse();
-        return res.json(data);
-    } catch (error) {
-        return res.status(500).json({ error: error.message });
-    }
 });
 
-app.post('/user/news', async (req, res) => {
-    try {
-        const data = await getNewsResponse();
-        return res.json(data);
-    } catch (error) {
-        return res.status(500).json({ error: error.message });
-    }
+app.all('/user/news', (req, res) => {
+    return res.json([
+        {
+            Header: "OLD-STUMBLED ON!",
+            Message: "Servidor privado conectado com sucesso.",
+            TimeStamp: "2024-01-01 12:00:00"
+        }
+    ]);
 });
 
 const PORT = process.env.PORT || 3000;
