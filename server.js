@@ -196,11 +196,28 @@ app.post('/user/login', async (req, res) => {
             await user.save();
         }
 
-        const formatted = formatUserResponse(user);
+        const formattedUser = formatUserResponse(user);
+        const version = req.headers['version'] || req.query.version || "0.37";
+
         return res.json({
-            User: formatted,
-            user: formatted,
-            ...formatted
+            ServerName: "Old-Stumbled",
+            User: formattedUser,
+            user: formattedUser,
+            Version: version,
+            version: version,
+            Type: "LIVE",
+            type: "LIVE",
+            Status: "OK",
+            status: "OK",
+            Timestamp: Math.floor(Date.now() / 1000),
+            Config: {
+                Server: "Old-Stumbled",
+                RoundTime: 180,
+                MaxPlayers: 32,
+                DisableAds: true,
+                FreeSpins: 999
+            },
+            ...formattedUser
         });
     } catch (error) {
         return res.status(500).json({ error: error.message });
@@ -274,7 +291,6 @@ app.post('/user/updateusernamefree', (req, res) => handleUserUpdate(req, res, tr
 app.post('/user/update', (req, res) => handleUserUpdate(req, res, false));
 app.post('/user/name/change', (req, res) => handleUserUpdate(req, res, false));
 
-// TRATAMENTO DA LOJA E OFERTAS
 const handleShopData = (req, res) => {
     return res.json({
         Offers: [
@@ -486,5 +502,5 @@ app.post('/user/news', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Servidor rodando na porta ${PORT}`);
+    console.log(`Servidor Old-Stumbled rodando na porta ${PORT}`);
 });
