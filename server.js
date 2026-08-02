@@ -4,12 +4,15 @@ const mongoose = require('mongoose');
 const app = express();
 app.use(express.json());
 
+// Log de requisições no console do Render/Heroku
 app.use((req, res, next) => {
     console.log(`[REQ] ${req.method} -> ${req.url}`);
     next();
 });
 
 const MONGO_URI = process.env.MONGO_URI;
+const HASH_CODE = "GZTXX7-189jaiu-&B!(p093=2-0!#45v";
+
 if (MONGO_URI) {
     mongoose.connect(MONGO_URI).catch(err => console.error("Erro no Mongo:", err));
 }
@@ -97,6 +100,19 @@ function formatUserResponse(user) {
         footsteps: []
     };
 }
+
+// === ROTA /auth QUE ESTAVA FALTANDO ===
+app.get('/auth', (req, res) => {
+    try {
+        const hash = req.query.hash;
+        if (hash === HASH_CODE) {
+            return res.send("on");
+        }
+        return res.send("invalid_hash");
+    } catch (error) {
+        return res.send("off");
+    }
+});
 
 // Rotas /shared
 app.all('/shared*', (req, res) => {
