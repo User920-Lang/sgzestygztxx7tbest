@@ -1,12 +1,9 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const fs = require('fs');
-const path = require('path');
 
 const app = express();
 app.use(express.json());
 
-// Log de requisições no console
 app.use((req, res, next) => {
     console.log(`[REQ] ${req.method} -> ${req.url}`);
     next();
@@ -103,7 +100,7 @@ function formatUserResponse(user) {
     };
 }
 
-// 1. Rota de Validação de Hash do Mod (/auth)
+// 1. Rota Auth
 app.get('/auth', (req, res) => {
     try {
         const hash = req.query.hash;
@@ -116,11 +113,8 @@ app.get('/auth', (req, res) => {
     }
 });
 
-// 2. Rotas /shared (v0.44.2)
+// 2. Rota Shared Completa (Resolve o bug do Shared e da Roleta)
 const handleSharedConfig = (req, res) => {
-    const version = req.params.version || req.query.version || "0.44.2";
-    const type = req.params.type || req.query.type || "LIVE";
-
     return res.json({
         "round_time": 180,
         "roundTime": 180,
@@ -130,26 +124,64 @@ const handleSharedConfig = (req, res) => {
         "disableAds": true,
         "free_spins": 999,
         "freeSpins": 999,
-        "version": version,
-        "Version": version,
-        "type": type,
-        "Type": type,
+        "version": "0.44.2",
+        "Version": "0.44.2",
+        "type": "LIVE",
+        "Type": "LIVE",
         "maintenance": false,
         "Maintenance": false,
         "force_update": false,
         "forceUpdate": false,
         "custom_party_enabled": true,
         "customPartyEnabled": true,
-        "maps": [],
-        "Maps": []
+        "wheel": {
+            "free_spins": 999,
+            "cost_gems": 0
+        },
+        "maps": ["BlockDash", "LaserTracer", "CannonClimb", "PivotPush", "FloorFlip"]
     });
 };
 
-app.get('/shared/:version/:type', handleSharedConfig);
-app.post('/shared/:version/:type', handleSharedConfig);
 app.all('/shared*', handleSharedConfig);
 
-// 3. Login de Usuário
+// 3. Endpoint da Roleta (Giro / Spin) - Resolve o "Waiting..."
+const handleSpin = async (req, res) => {
+    let deviceId = extractDeviceId(req) || "device_default";
+    let user = await UserModel.findOne({ DeviceId: deviceId });
+
+    if (!user) {
+        user = { Gems: 10000, Tokens: 999999, UserId: 1, Username: "OldStumbled#Player", DeviceId: deviceId };
+    } else {
+        user.Gems += 100;
+        await user.save().catch(() => {});
+    }
+
+    const userData = formatUserResponse(user);
+
+    return res.json({
+        Status: "OK",
+        status: "OK",
+        Reward: {
+            Type: "Gems",
+            Amount: 100,
+            Id: "gems_100"
+        },
+        reward: {
+            Type: "Gems",
+            Amount: 100,
+            Id: "gems_100"
+        },
+        User: userData,
+        user: userData
+    });
+};
+
+// Rotas que o jogo pode chamar ao clicar na Roleta
+app.all('/user/spin*', handleSpin);
+app.all('/round/spin*', handleSpin);
+app.all('/shop/claim*', handleSpin);
+
+// 4. Login
 app.all('/user/login*', async (req, res) => {
     try {
         let deviceId = extractDeviceId(req) || `device_${Date.now()}`;
@@ -188,7 +220,7 @@ app.all('/user/login*', async (req, res) => {
     }
 });
 
-// 4. Loja
+// 5. Loja
 app.all('/shop*', (req, res) => {
     return res.json({
         Offers: [
@@ -200,7 +232,7 @@ app.all('/shop*', (req, res) => {
     });
 });
 
-// 5. Notícias
+// 6. News
 app.all('/user/news*', (req, res) => {
     return res.json([
         {
@@ -211,7 +243,7 @@ app.all('/user/news*', (req, res) => {
     ]);
 });
 
-// 6. Catch-All para Qualquer Outra Rota do Client
+// 7. Catch-All
 app.use(async (req, res) => {
     let dummyUser = {
         UserId: 1,
