@@ -1,10 +1,12 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 app.use(express.json());
 
-// Log de requisições no console do Render/Heroku
+// Log de requisições no console
 app.use((req, res, next) => {
     console.log(`[REQ] ${req.method} -> ${req.url}`);
     next();
@@ -101,7 +103,7 @@ function formatUserResponse(user) {
     };
 }
 
-// === ROTA /auth QUE ESTAVA FALTANDO ===
+// 1. Rota de Validação de Hash do Mod (/auth)
 app.get('/auth', (req, res) => {
     try {
         const hash = req.query.hash;
@@ -114,19 +116,40 @@ app.get('/auth', (req, res) => {
     }
 });
 
-// Rotas /shared
-app.all('/shared*', (req, res) => {
+// 2. Rotas /shared (v0.44.2)
+const handleSharedConfig = (req, res) => {
+    const version = req.params.version || req.query.version || "0.44.2";
+    const type = req.params.type || req.query.type || "LIVE";
+
     return res.json({
         "round_time": 180,
+        "roundTime": 180,
         "max_players": 32,
+        "maxPlayers": 32,
         "disable_ads": true,
+        "disableAds": true,
         "free_spins": 999,
-        "version": "0.44.2",
-        "type": "LIVE"
+        "freeSpins": 999,
+        "version": version,
+        "Version": version,
+        "type": type,
+        "Type": type,
+        "maintenance": false,
+        "Maintenance": false,
+        "force_update": false,
+        "forceUpdate": false,
+        "custom_party_enabled": true,
+        "customPartyEnabled": true,
+        "maps": [],
+        "Maps": []
     });
-});
+};
 
-// Login
+app.get('/shared/:version/:type', handleSharedConfig);
+app.post('/shared/:version/:type', handleSharedConfig);
+app.all('/shared*', handleSharedConfig);
+
+// 3. Login de Usuário
 app.all('/user/login*', async (req, res) => {
     try {
         let deviceId = extractDeviceId(req) || `device_${Date.now()}`;
@@ -165,7 +188,7 @@ app.all('/user/login*', async (req, res) => {
     }
 });
 
-// Loja
+// 4. Loja
 app.all('/shop*', (req, res) => {
     return res.json({
         Offers: [
@@ -177,18 +200,18 @@ app.all('/shop*', (req, res) => {
     });
 });
 
-// News
+// 5. Notícias
 app.all('/user/news*', (req, res) => {
     return res.json([
         {
             Header: "OLD-STUMBLED ON!",
-            Message: "Conectado na versão 0.44.2.",
+            Message: "Conectado com sucesso na versão 0.44.2.",
             TimeStamp: "2024-01-01 12:00:00"
         }
     ]);
 });
 
-// Catch-All
+// 6. Catch-All para Qualquer Outra Rota do Client
 app.use(async (req, res) => {
     let dummyUser = {
         UserId: 1,
