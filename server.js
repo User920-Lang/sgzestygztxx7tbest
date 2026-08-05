@@ -20,8 +20,8 @@ const userSchema = new mongoose.Schema({
     DeviceId: { type: String, required: true, unique: true },
     UserId: { type: Number, required: true },
     Username: { type: String, required: true },
-    Gems: { type: Number, default: 0 },
-    Tokens: { type: Number, default: 0 },
+    Gems: { type: Number, default: 200 },
+    Tokens: { type: Number, default: 100 },
     Crowns: { type: Number, default: 0 },
     SkillRating: { type: Number, default: 0 },
     Experience: { type: Number, default: 0 },
@@ -58,26 +58,28 @@ function extractDeviceId(req) {
 function formatUserResponse(user) {
     const userId = user.UserId || 1;
     const username = user.Username || "StumbleZesty#Player";
+    const gems = user.Gems !== undefined ? user.Gems : 200;
+    const tokens = user.Tokens !== undefined ? user.Tokens : 100;
 
     return {
         Id: userId,
         id: userId,
         UserId: userId,
         user_id: userId,
-        DeviceId: user.DeviceId,
-        deviceId: user.DeviceId,
+        DeviceId: user.DeviceId || "device_default",
+        deviceId: user.DeviceId || "device_default",
         Username: username,
         username: username,
         Name: username,
         name: username,
         Country: "US",
         country: "US",
-        Gems: user.Gems || 0,
-        gems: user.Gems || 0,
-        Tokens: user.Tokens || 0,
-        tokens: user.Tokens || 0,
-        Dust: user.Tokens || 0,
-        dust: user.Tokens || 0,
+        Gems: gems,
+        gems: gems,
+        Tokens: tokens,
+        tokens: tokens,
+        Dust: tokens,
+        dust: tokens,
         Crowns: user.Crowns || 0,
         crowns: user.Crowns || 0,
         SkillRating: user.SkillRating || 0,
@@ -89,6 +91,16 @@ function formatUserResponse(user) {
         banned: false,
         FreeNameChange: true,
         freeNameChange: true,
+
+        Balances: [
+            { Name: "Gems", Amount: gems },
+            { Name: "Tokens", Amount: tokens }
+        ],
+        balances: [
+            { Name: "Gems", Amount: gems },
+            { Name: "Tokens", Amount: tokens }
+        ],
+
         Skins: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
         skins: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
         Emotes: [],
@@ -117,7 +129,6 @@ const handleSharedConfig = (req, res) => {
     const type = req.params.type || req.query.type || "LIVE";
 
     return res.json({
-        "username": username,
         "round_time": 180,
         "roundTime": 180,
         "max_players": 32,
@@ -192,7 +203,7 @@ app.all(['/shop*', '/user/shop'], (req, res) => {
             }
         ],
         "Items": [
-            { "Id": "gems_300", "Type": "Gems", "Amount": 0, "Price": 0 }
+            { "Id": "gems_300", "Type": "Gems", "Amount": 200, "Price": 0 }
         ]
     });
 });
@@ -202,9 +213,8 @@ const handleClaimReward = async (req, res) => {
     let user = await UserModel.findOne({ DeviceId: deviceId });
 
     if (!user) {
-        user = { Gems: 0, Tokens: 0, UserId: 1, Username: "StumbleZesty#Player", DeviceId: deviceId };
+        user = { Gems: 200, Tokens: 100, UserId: 1, Username: "StumbleZesty#Player", DeviceId: deviceId };
     } else {
-        user.Gems += 0;
         await user.save().catch(() => {});
     }
 
@@ -251,8 +261,8 @@ app.all('/user/login', async (req, res) => {
                 DeviceId: deviceId,
                 UserId: generateRandomUserId(),
                 Username: generateRandomTag(),
-                Gems: 0,
-                Tokens: 0,
+                Gems: 200,
+                Tokens: 100,
                 Crowns: 0,
                 SkillRating: 0,
                 Experience: 0,
@@ -293,8 +303,8 @@ app.use(async (req, res) => {
     let dummyUser = {
         UserId: 1,
         Username: "StumbleZesty#Player",
-        Gems: 0,
-        Tokens: 0,
+        Gems: 200,
+        Tokens: 100,
         Crowns: 0,
         SkillRating: 0,
         Experience: 0,
