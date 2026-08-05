@@ -20,8 +20,8 @@ const userSchema = new mongoose.Schema({
     DeviceId: { type: String, required: true, unique: true },
     UserId: { type: Number, required: true },
     Username: { type: String, required: true },
-    Gems: { type: Number, default: 10000 },
-    Tokens: { type: Number, default: 999999 },
+    Gems: { type: Number, default: 0 },
+    Tokens: { type: Number, default: 0 },
     Crowns: { type: Number, default: 0 },
     SkillRating: { type: Number, default: 0 },
     Experience: { type: Number, default: 0 },
@@ -37,7 +37,7 @@ function generateRandomTag() {
     for (let i = 0; i < 8; i++) {
         code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    return `OldStumbled#${code}`;
+    return `StumbleZesty#${code}`;
 }
 
 function generateRandomUserId() {
@@ -57,7 +57,7 @@ function extractDeviceId(req) {
 
 function formatUserResponse(user) {
     const userId = user.UserId || 1;
-    const username = user.Username || "OldStumbled#Player";
+    const username = user.Username || "StumbleZesty#Player";
 
     return {
         Id: userId,
@@ -72,12 +72,12 @@ function formatUserResponse(user) {
         name: username,
         Country: "US",
         country: "US",
-        Gems: user.Gems || 10000,
-        gems: user.Gems || 10000,
-        Tokens: user.Tokens || 999999,
-        tokens: user.Tokens || 999999,
-        Dust: user.Tokens || 999999,
-        dust: user.Tokens || 999999,
+        Gems: user.Gems || 0,
+        gems: user.Gems || 0,
+        Tokens: user.Tokens || 0,
+        tokens: user.Tokens || 0,
+        Dust: user.Tokens || 0,
+        dust: user.Tokens || 0,
         Crowns: user.Crowns || 0,
         crowns: user.Crowns || 0,
         SkillRating: user.SkillRating || 0,
@@ -113,18 +113,19 @@ app.get('/auth', (req, res) => {
 });
 
 const handleSharedConfig = (req, res) => {
-    const version = req.params.version || req.query.version || "0.44.2";
+    const version = req.params.version || req.query.version || "0.33";
     const type = req.params.type || req.query.type || "LIVE";
 
     return res.json({
+        "username": username,
         "round_time": 180,
         "roundTime": 180,
         "max_players": 32,
         "maxPlayers": 32,
         "disable_ads": true,
         "disableAds": true,
-        "free_spins": 999,
-        "freeSpins": 999,
+        "free_spins": 0,
+        "freeSpins": 0,
         "version": version,
         "Version": version,
         "type": type,
@@ -136,14 +137,14 @@ const handleSharedConfig = (req, res) => {
         "custom_party_enabled": true,
         "customPartyEnabled": true,
         "wheel": {
-            "free_spins": 999,
-            "freeSpins": 999,
+            "free_spins": 0,
+            "freeSpins": 0,
             "cost_gems": 0,
             "costGems": 0
         },
         "Wheel": {
-            "free_spins": 999,
-            "freeSpins": 999,
+            "free_spins": 0,
+            "freeSpins": 0,
             "cost_gems": 0,
             "costGems": 0
         },
@@ -168,8 +169,8 @@ app.all(['/shop*', '/user/shop'], (req, res) => {
                 "id": "wheel_free",
                 "Type": "Wheel",
                 "type": "Wheel",
-                "FreeSpins": 999,
-                "freeSpins": 999,
+                "FreeSpins": 0,
+                "freeSpins": 0,
                 "IsFree": true,
                 "isFree": true,
                 "Price": 0,
@@ -182,8 +183,8 @@ app.all(['/shop*', '/user/shop'], (req, res) => {
                 "id": "wheel_free",
                 "Type": "Wheel",
                 "type": "Wheel",
-                "FreeSpins": 999,
-                "freeSpins": 999,
+                "FreeSpins": 0,
+                "freeSpins": 0,
                 "IsFree": true,
                 "isFree": true,
                 "Price": 0,
@@ -191,7 +192,7 @@ app.all(['/shop*', '/user/shop'], (req, res) => {
             }
         ],
         "Items": [
-            { "Id": "gems_300", "Type": "Gems", "Amount": 10000, "Price": 0 }
+            { "Id": "gems_300", "Type": "Gems", "Amount": 0, "Price": 0 }
         ]
     });
 });
@@ -201,9 +202,9 @@ const handleClaimReward = async (req, res) => {
     let user = await UserModel.findOne({ DeviceId: deviceId });
 
     if (!user) {
-        user = { Gems: 10000, Tokens: 999999, UserId: 1, Username: "OldStumbled#Player", DeviceId: deviceId };
+        user = { Gems: 0, Tokens: 0, UserId: 1, Username: "StumbleZesty#Player", DeviceId: deviceId };
     } else {
-        user.Gems += 100;
+        user.Gems += 0;
         await user.save().catch(() => {});
     }
 
@@ -217,18 +218,18 @@ const handleClaimReward = async (req, res) => {
         "Reward": {
             "Type": "Gems",
             "type": "Gems",
-            "Amount": 100,
-            "amount": 100,
-            "Id": "gems_100",
-            "id": "gems_100"
+            "Amount": 0,
+            "amount": 0,
+            "Id": "gems_0",
+            "id": "gems_0"
         },
         "reward": {
             "Type": "Gems",
             "type": "Gems",
-            "Amount": 100,
-            "amount": 100,
-            "Id": "gems_100",
-            "id": "gems_100"
+            "Amount": 0,
+            "amount": 0,
+            "Id": "gems_0",
+            "id": "gems_0"
         },
         "User": userData,
         "user": userData
@@ -250,8 +251,8 @@ app.all('/user/login', async (req, res) => {
                 DeviceId: deviceId,
                 UserId: generateRandomUserId(),
                 Username: generateRandomTag(),
-                Gems: 10000,
-                Tokens: 999999,
+                Gems: 0,
+                Tokens: 0,
                 Crowns: 0,
                 SkillRating: 0,
                 Experience: 0,
@@ -268,8 +269,8 @@ app.all('/user/login', async (req, res) => {
             user: userData,
             Status: "OK",
             status: "OK",
-            Version: "0.44.2",
-            version: "0.44.2",
+            Version: "0.33",
+            version: "0.33",
             Type: "LIVE",
             type: "LIVE"
         });
@@ -281,8 +282,8 @@ app.all('/user/login', async (req, res) => {
 app.all('/user/news*', (req, res) => {
     return res.json([
         {
-            Header: "OLD-STUMBLED ON!",
-            Message: "Conectado com sucesso na versão 0.44.2.",
+            Header: "STUMBLE-ZESTY ON!",
+            Message: "Conectado com sucesso na versão 0.33.",
             TimeStamp: "2024-01-01 12:00:00"
         }
     ]);
@@ -291,9 +292,9 @@ app.all('/user/news*', (req, res) => {
 app.use(async (req, res) => {
     let dummyUser = {
         UserId: 1,
-        Username: "OldStumbled#Player",
-        Gems: 10000,
-        Tokens: 999999,
+        Username: "StumbleZesty#Player",
+        Gems: 0,
+        Tokens: 0,
         Crowns: 0,
         SkillRating: 0,
         Experience: 0,
@@ -307,12 +308,12 @@ app.use(async (req, res) => {
         status: "OK",
         User: userData,
         user: userData,
-        Version: "0.44.2",
-        version: "0.44.2"
+        Version: "0.33",
+        version: "0.33"
     });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Servidor Old-Stumbled v0.44.2 rodando na porta ${PORT}`);
+    console.log(`Servidor Stumble-Zesty v0.33 rodando na porta ${PORT}`);
 });
