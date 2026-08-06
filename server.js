@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const app = express();
 app.use(express.json());
 
-// Log de requisições no console para acompanhar os requests do Unity
+// Log no console para monitorar as rotas que o Unity chama
 app.use((req, res, next) => {
     console.log(`[REQ] ${req.method} -> ${req.url}`);
     next();
@@ -56,7 +56,7 @@ function extractDeviceId(req) {
     return null;
 }
 
-// Lista completa de objetos de Skins registrada no SharedData
+// Skins completas formatadas para o SharedData
 const sharedSkinsList = [
     { Id: "0", id: "0", Name: "Stumble Guy", name: "Stumble Guy", Tier: 0, tier: 0, Type: "skin", type: "skin" },
     { Id: "1", id: "1", Name: "Skin 1", name: "Skin 1", Tier: 0, tier: 0, Type: "skin", type: "skin" },
@@ -70,19 +70,8 @@ const sharedSkinsList = [
     { Id: "9", id: "9", Name: "Skin 9", name: "Skin 9", Tier: 0, tier: 0, Type: "skin", type: "skin" }
 ];
 
-const sharedEmotesList = [
-    { Id: "emote_happy", id: "emote_happy", Name: "Happy", name: "Happy" },
-    { Id: "emote_cry", id: "emote_cry", Name: "Cry", name: "Cry" },
-    { Id: "emote_hi", id: "emote_hi", Name: "Hi", name: "Hi" }
-];
-
-const sharedAnimationsList = [
-    { Id: "animation1", id: "animation1", Name: "Animation 1", name: "Animation 1" }
-];
-
-const sharedFootstepsList = [
-    { Id: "footsteps_smoke", id: "footsteps_smoke", Name: "Smoke", name: "Smoke" }
-];
+const sharedSkinsMap = {};
+sharedSkinsList.forEach(s => { sharedSkinsMap[s.Id] = s; });
 
 const userOwnedSkinIds = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
@@ -159,9 +148,9 @@ app.get('/auth', (req, res) => {
     }
 });
 
-// Configuração do SharedData sem erros de deserialização
+// Manipulador do /shared corrigido para impedir o erro do AdManager e carregar o SharedData
 const handleSharedConfig = (req, res) => {
-    const version = req.params.version || req.query.version || "0.33";
+    const version = req.params.version || req.query.version || "1766";
     const type = req.params.type || req.query.type || "LIVE";
 
     const config = {
@@ -192,6 +181,25 @@ const handleSharedConfig = (req, res) => {
         custom_party_enabled: true,
         customPartyEnabled: true,
 
+        // Objeto exigido para o AdManager.OnSharedLoded não tomar NullReference
+        Ads: {
+            Disabled: true,
+            disabled: true,
+            Providers: [],
+            providers: []
+        },
+        ads: {
+            disabled: true,
+            providers: []
+        },
+        AdConfig: {
+            Disabled: true,
+            disabled: true
+        },
+        adConfig: {
+            disabled: true
+        },
+
         Wheel: {
             FreeSpins: 0,
             free_spins: 0,
@@ -211,31 +219,28 @@ const handleSharedConfig = (req, res) => {
             PremiumPassRewards: [],
             premiumPassRewards: []
         },
-        battlePass: {
-            passTokens: 0,
-            freePassRewards: [],
-            premiumPassRewards: []
-        },
 
         Maps: ["BlockDash", "LaserTracer", "CannonClimb", "PivotPush", "FloorFlip"],
         maps: ["BlockDash", "LaserTracer", "CannonClimb", "PivotPush", "FloorFlip"],
 
+        // Suporte duplo para Skins (Array e Dicionário)
         Skins: sharedSkinsList,
         skins: sharedSkinsList,
-        Emotes: sharedEmotesList,
-        emotes: sharedEmotesList,
-        Animations: sharedAnimationsList,
-        animations: sharedAnimationsList,
-        Footsteps: sharedFootstepsList,
-        footsteps: sharedFootstepsList
+        SharedSkins: sharedSkinsMap,
+
+        Emotes: [],
+        emotes: [],
+        Animations: [],
+        animations: [],
+        Footsteps: [],
+        footsteps: []
     };
 
     return res.json(config);
 };
 
-// Mapeia todas as possíveis variações de rota do Shared que o Android envia
+// Mapeia todas as URLs do /shared
 app.all('/shared*', handleSharedConfig);
-app.all('/shared/*', handleSharedConfig);
 
 app.all(['/shop*', '/user/shop'], (req, res) => {
     return res.json({
@@ -308,8 +313,8 @@ app.all('/user/login', async (req, res) => {
             user: userData,
             Status: "OK",
             status: "OK",
-            Version: "0.33",
-            version: "0.33",
+            Version: "1766",
+            version: "1766",
             Type: "LIVE",
             type: "LIVE"
         });
@@ -322,7 +327,7 @@ app.all('/user/news*', (req, res) => {
     return res.json([
         {
             Header: "STUMBLE-ZESTY ON!",
-            Message: "Conectado com sucesso na versão 0.33.",
+            Message: "Conectado com sucesso na versão 1766.",
             TimeStamp: "2024-01-01 12:00:00"
         }
     ]);
@@ -347,12 +352,12 @@ app.use(async (req, res) => {
         status: "OK",
         User: userData,
         user: userData,
-        Version: "0.33",
-        version: "0.33"
+        Version: "1766",
+        version: "1766"
     });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Servidor Stumble-Zesty v0.33 rodando na porta ${PORT}`);
+    console.log(`Servidor Stumble-Zesty v1766 rodando na porta ${PORT}`);
 });
