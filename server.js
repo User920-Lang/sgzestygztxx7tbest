@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const app = express();
 app.use(express.json());
 
-// Log de requisições no console para debug
+// Log de requisições no console para acompanhar os requests do Unity
 app.use((req, res, next) => {
     console.log(`[REQ] ${req.method} -> ${req.url}`);
     next();
@@ -56,8 +56,8 @@ function extractDeviceId(req) {
     return null;
 }
 
-// Lista de objetos de Skins formatada exatamente para o SharedData da v0.33
-const sharedSkins = [
+// Lista completa de objetos de Skins registrada no SharedData
+const sharedSkinsList = [
     { Id: "0", id: "0", Name: "Stumble Guy", name: "Stumble Guy", Tier: 0, tier: 0, Type: "skin", type: "skin" },
     { Id: "1", id: "1", Name: "Skin 1", name: "Skin 1", Tier: 0, tier: 0, Type: "skin", type: "skin" },
     { Id: "2", id: "2", Name: "Skin 2", name: "Skin 2", Tier: 0, tier: 0, Type: "skin", type: "skin" },
@@ -68,6 +68,20 @@ const sharedSkins = [
     { Id: "7", id: "7", Name: "Skin 7", name: "Skin 7", Tier: 0, tier: 0, Type: "skin", type: "skin" },
     { Id: "8", id: "8", Name: "Skin 8", name: "Skin 8", Tier: 0, tier: 0, Type: "skin", type: "skin" },
     { Id: "9", id: "9", Name: "Skin 9", name: "Skin 9", Tier: 0, tier: 0, Type: "skin", type: "skin" }
+];
+
+const sharedEmotesList = [
+    { Id: "emote_happy", id: "emote_happy", Name: "Happy", name: "Happy" },
+    { Id: "emote_cry", id: "emote_cry", Name: "Cry", name: "Cry" },
+    { Id: "emote_hi", id: "emote_hi", Name: "Hi", name: "Hi" }
+];
+
+const sharedAnimationsList = [
+    { Id: "animation1", id: "animation1", Name: "Animation 1", name: "Animation 1" }
+];
+
+const sharedFootstepsList = [
+    { Id: "footsteps_smoke", id: "footsteps_smoke", Name: "Smoke", name: "Smoke" }
 ];
 
 const userOwnedSkinIds = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
@@ -145,66 +159,83 @@ app.get('/auth', (req, res) => {
     }
 });
 
+// Configuração do SharedData sem erros de deserialização
 const handleSharedConfig = (req, res) => {
     const version = req.params.version || req.query.version || "0.33";
     const type = req.params.type || req.query.type || "LIVE";
 
-    return res.json({
-        "Status": "OK",
-        "status": "OK",
-        "RoundTime": 180,
-        "round_time": 180,
-        "roundTime": 180,
-        "MaxPlayers": 32,
-        "max_players": 32,
-        "maxPlayers": 32,
-        "DisableAds": true,
-        "disable_ads": true,
-        "disableAds": true,
-        "FreeSpins": 0,
-        "free_spins": 0,
-        "freeSpins": 0,
-        "Version": version,
-        "version": version,
-        "Type": type,
-        "type": type,
-        "Maintenance": false,
-        "maintenance": false,
-        "ForceUpdate": false,
-        "force_update": false,
-        "forceUpdate": false,
-        "CustomPartyEnabled": true,
-        "custom_party_enabled": true,
-        "customPartyEnabled": true,
-        "Wheel": {
-            "FreeSpins": 0,
-            "free_spins": 0,
-            "CostGems": 0,
-            "cost_gems": 0
+    const config = {
+        Status: "OK",
+        status: "OK",
+        RoundTime: 180,
+        round_time: 180,
+        roundTime: 180,
+        MaxPlayers: 32,
+        max_players: 32,
+        maxPlayers: 32,
+        DisableAds: true,
+        disable_ads: true,
+        disableAds: true,
+        FreeSpins: 0,
+        free_spins: 0,
+        freeSpins: 0,
+        Version: version,
+        version: version,
+        Type: type,
+        type: type,
+        Maintenance: false,
+        maintenance: false,
+        ForceUpdate: false,
+        force_update: false,
+        forceUpdate: false,
+        CustomPartyEnabled: true,
+        custom_party_enabled: true,
+        customPartyEnabled: true,
+
+        Wheel: {
+            FreeSpins: 0,
+            free_spins: 0,
+            CostGems: 0,
+            cost_gems: 0
         },
-        "wheel": {
-            "free_spins": 0,
-            "cost_gems": 0
+        wheel: {
+            free_spins: 0,
+            cost_gems: 0
         },
-        "Maps": ["BlockDash", "LaserTracer", "CannonClimb", "PivotPush", "FloorFlip"],
-        "maps": ["BlockDash", "LaserTracer", "CannonClimb", "PivotPush", "FloorFlip"],
-        
-        "Skins": sharedSkins,
-        "skins": sharedSkins,
-        "Emotes": [],
-        "emotes": [],
-        "Animations": [],
-        "animations": [],
-        "Footsteps": [],
-        "footsteps": []
-    });
+
+        BattlePass: {
+            PassTokens: 0,
+            passTokens: 0,
+            FreePassRewards: [],
+            freePassRewards: [],
+            PremiumPassRewards: [],
+            premiumPassRewards: []
+        },
+        battlePass: {
+            passTokens: 0,
+            freePassRewards: [],
+            premiumPassRewards: []
+        },
+
+        Maps: ["BlockDash", "LaserTracer", "CannonClimb", "PivotPush", "FloorFlip"],
+        maps: ["BlockDash", "LaserTracer", "CannonClimb", "PivotPush", "FloorFlip"],
+
+        Skins: sharedSkinsList,
+        skins: sharedSkinsList,
+        Emotes: sharedEmotesList,
+        emotes: sharedEmotesList,
+        Animations: sharedAnimationsList,
+        animations: sharedAnimationsList,
+        Footsteps: sharedFootstepsList,
+        footsteps: sharedFootstepsList
+    };
+
+    return res.json(config);
 };
 
-app.get('/shared/:version/:type', handleSharedConfig);
-app.post('/shared/:version/:type', handleSharedConfig);
-app.get('/shared', handleSharedConfig);
-app.post('/shared', handleSharedConfig);
+// Mapeia todas as possíveis variações de rota do Shared que o Android envia
 app.all('/shared*', handleSharedConfig);
+app.all('/shared/*', handleSharedConfig);
 
 app.all(['/shop*', '/user/shop'], (req, res) => {
     return res.json({
