@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const app = express();
 app.use(express.json());
 
+// Log de requisições no console para debug
 app.use((req, res, next) => {
     console.log(`[REQ] ${req.method} -> ${req.url}`);
     next();
@@ -55,21 +56,21 @@ function extractDeviceId(req) {
     return null;
 }
 
-// Estrutura completa de skins para a v0.33 não dar NullReferenceException em GetSharedSkin
-const fullSkinsList = [
-    { id: "0", name: "Stumble Guy", tier: 0, type: "skin" },
-    { id: "1", name: "Skin 1", tier: 0, type: "skin" },
-    { id: "2", name: "Skin 2", tier: 0, type: "skin" },
-    { id: "3", name: "Skin 3", tier: 0, type: "skin" },
-    { id: "4", name: "Skin 4", tier: 0, type: "skin" },
-    { id: "5", name: "Skin 5", tier: 0, type: "skin" },
-    { id: "6", name: "Skin 6", tier: 0, type: "skin" },
-    { id: "7", name: "Skin 7", tier: 0, type: "skin" },
-    { id: "8", name: "Skin 8", tier: 0, type: "skin" },
-    { id: "9", name: "Skin 9", tier: 0, type: "skin" }
+// Lista de objetos de Skins formatada exatamente para o SharedData da v0.33
+const sharedSkins = [
+    { Id: "0", id: "0", Name: "Stumble Guy", name: "Stumble Guy", Tier: 0, tier: 0, Type: "skin", type: "skin" },
+    { Id: "1", id: "1", Name: "Skin 1", name: "Skin 1", Tier: 0, tier: 0, Type: "skin", type: "skin" },
+    { Id: "2", id: "2", Name: "Skin 2", name: "Skin 2", Tier: 0, tier: 0, Type: "skin", type: "skin" },
+    { Id: "3", id: "3", Name: "Skin 3", name: "Skin 3", Tier: 0, tier: 0, Type: "skin", type: "skin" },
+    { Id: "4", id: "4", Name: "Skin 4", name: "Skin 4", Tier: 0, tier: 0, Type: "skin", type: "skin" },
+    { Id: "5", id: "5", Name: "Skin 5", name: "Skin 5", Tier: 0, tier: 0, Type: "skin", type: "skin" },
+    { Id: "6", id: "6", Name: "Skin 6", name: "Skin 6", Tier: 0, tier: 0, Type: "skin", type: "skin" },
+    { Id: "7", id: "7", Name: "Skin 7", name: "Skin 7", Tier: 0, tier: 0, Type: "skin", type: "skin" },
+    { Id: "8", id: "8", Name: "Skin 8", name: "Skin 8", Tier: 0, tier: 0, Type: "skin", type: "skin" },
+    { Id: "9", id: "9", Name: "Skin 9", name: "Skin 9", Tier: 0, tier: 0, Type: "skin", type: "skin" }
 ];
 
-const skinIds = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+const userOwnedSkinIds = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
 function formatUserResponse(user) {
     const userId = user.UserId || 1;
@@ -119,8 +120,8 @@ function formatUserResponse(user) {
             { Name: "Tokens", Amount: tokens }
         ],
 
-        Skins: skinIds,
-        skins: skinIds,
+        Skins: userOwnedSkinIds,
+        skins: userOwnedSkinIds,
         SkinVariants: [],
         skinVariants: [],
         Emotes: ["emote_happy", "emote_cry", "emote_hi"],
@@ -148,54 +149,54 @@ const handleSharedConfig = (req, res) => {
     const version = req.params.version || req.query.version || "0.33";
     const type = req.params.type || req.query.type || "LIVE";
 
-    const sharedPayload = {
+    return res.json({
+        "Status": "OK",
+        "status": "OK",
+        "RoundTime": 180,
         "round_time": 180,
         "roundTime": 180,
+        "MaxPlayers": 32,
         "max_players": 32,
         "maxPlayers": 32,
+        "DisableAds": true,
         "disable_ads": true,
         "disableAds": true,
+        "FreeSpins": 0,
         "free_spins": 0,
         "freeSpins": 0,
-        "version": version,
         "Version": version,
-        "type": type,
+        "version": version,
         "Type": type,
-        "maintenance": false,
+        "type": type,
         "Maintenance": false,
+        "maintenance": false,
+        "ForceUpdate": false,
         "force_update": false,
         "forceUpdate": false,
+        "CustomPartyEnabled": true,
         "custom_party_enabled": true,
         "customPartyEnabled": true,
+        "Wheel": {
+            "FreeSpins": 0,
+            "free_spins": 0,
+            "CostGems": 0,
+            "cost_gems": 0
+        },
         "wheel": {
             "free_spins": 0,
-            "freeSpins": 0,
-            "cost_gems": 0,
-            "costGems": 0
+            "cost_gems": 0
         },
-        "Wheel": {
-            "free_spins": 0,
-            "freeSpins": 0,
-            "cost_gems": 0,
-            "costGems": 0
-        },
-        "maps": ["BlockDash", "LaserTracer", "CannonClimb", "PivotPush", "FloorFlip"],
         "Maps": ["BlockDash", "LaserTracer", "CannonClimb", "PivotPush", "FloorFlip"],
+        "maps": ["BlockDash", "LaserTracer", "CannonClimb", "PivotPush", "FloorFlip"],
         
-        "skins": fullSkinsList,
-        "Skins": fullSkinsList,
-        "emotes": [],
+        "Skins": sharedSkins,
+        "skins": sharedSkins,
         "Emotes": [],
-        "animations": [],
+        "emotes": [],
         "Animations": [],
-        "footsteps": [],
-        "Footsteps": []
-    };
-
-    return res.json({
-        ...sharedPayload,
-        "sharedData": sharedPayload,
-        "SharedData": sharedPayload
+        "animations": [],
+        "Footsteps": [],
+        "footsteps": []
     });
 };
 
