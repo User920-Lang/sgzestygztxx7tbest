@@ -55,6 +55,13 @@ function extractDeviceId(req) {
     return null;
 }
 
+// Lista padrão de IDs de skins básicas para registrar no SharedData do jogo
+const defaultSkinsList = [
+    { id: "0", tier: 0 }, { id: "1", tier: 0 }, { id: "2", tier: 0 },
+    { id: "3", tier: 0 }, { id: "4", tier: 0 }, { id: "5", tier: 0 },
+    { id: "6", tier: 0 }, { id: "7", tier: 0 }, { id: "8", tier: 0 }, { id: "9", tier: 0 }
+];
+
 function formatUserResponse(user) {
     const userId = user.UserId || 1;
     const username = user.Username || "StumbleZesty#Player";
@@ -92,6 +99,7 @@ function formatUserResponse(user) {
         FreeNameChange: true,
         freeNameChange: true,
 
+        // Balances estruturados para a classe User C#
         Balances: [
             { Name: "Gems", Amount: gems },
             { Name: "Tokens", Amount: tokens }
@@ -103,12 +111,12 @@ function formatUserResponse(user) {
 
         Skins: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
         skins: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
-        Emotes: [],
-        emotes: [],
-        Animations: [],
-        animations: [],
-        Footsteps: [],
-        footsteps: []
+        Emotes: ["emote_happy", "emote_cry", "emote_hi"],
+        emotes: ["emote_happy", "emote_cry", "emote_hi"],
+        Animations: ["animation1"],
+        animations: ["animation1"],
+        Footsteps: ["footsteps_smoke"],
+        footsteps: ["footsteps_smoke"]
     };
 }
 
@@ -160,7 +168,11 @@ const handleSharedConfig = (req, res) => {
             "costGems": 0
         },
         "maps": ["BlockDash", "LaserTracer", "CannonClimb", "PivotPush", "FloorFlip"],
-        "Maps": ["BlockDash", "LaserTracer", "CannonClimb", "PivotPush", "FloorFlip"]
+        "Maps": ["BlockDash", "LaserTracer", "CannonClimb", "PivotPush", "FloorFlip"],
+        
+        // Estruturas de skins necessárias para não dar NullReferenceException no SharedData do Unity
+        "skins": defaultSkinsList,
+        "Skins": defaultSkinsList
     });
 };
 
@@ -174,37 +186,9 @@ app.all(['/shop*', '/user/shop'], (req, res) => {
     return res.json({
         "Status": "OK",
         "status": "OK",
-        "Offers": [
-            {
-                "Id": "wheel_free",
-                "id": "wheel_free",
-                "Type": "Wheel",
-                "type": "Wheel",
-                "FreeSpins": 0,
-                "freeSpins": 0,
-                "IsFree": true,
-                "isFree": true,
-                "Price": 0,
-                "price": 0
-            }
-        ],
-        "offers": [
-            {
-                "Id": "wheel_free",
-                "id": "wheel_free",
-                "Type": "Wheel",
-                "type": "Wheel",
-                "FreeSpins": 0,
-                "freeSpins": 0,
-                "IsFree": true,
-                "isFree": true,
-                "Price": 0,
-                "price": 0
-            }
-        ],
-        "Items": [
-            { "Id": "gems_300", "Type": "Gems", "Amount": 200, "Price": 0 }
-        ]
+        "Offers": [],
+        "offers": [],
+        "Items": []
     });
 });
 
@@ -214,8 +198,6 @@ const handleClaimReward = async (req, res) => {
 
     if (!user) {
         user = { Gems: 200, Tokens: 100, UserId: 1, Username: "StumbleZesty#Player", DeviceId: deviceId };
-    } else {
-        await user.save().catch(() => {});
     }
 
     const userData = formatUserResponse(user);
@@ -226,14 +208,6 @@ const handleClaimReward = async (req, res) => {
         "Success": true,
         "success": true,
         "Reward": {
-            "Type": "Gems",
-            "type": "Gems",
-            "Amount": 0,
-            "amount": 0,
-            "Id": "gems_0",
-            "id": "gems_0"
-        },
-        "reward": {
             "Type": "Gems",
             "type": "Gems",
             "Amount": 0,
