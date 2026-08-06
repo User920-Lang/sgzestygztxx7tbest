@@ -1,10 +1,11 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 app.use(express.json());
 
-// Log no console para monitorar as rotas que o Unity chama
 app.use((req, res, next) => {
     console.log(`[REQ] ${req.method} -> ${req.url}`);
     next();
@@ -14,7 +15,7 @@ const MONGO_URI = process.env.MONGO_URI;
 const HASH_CODE = "GZTXX7-189jaiu-&B!(p093=2-0!#45v";
 
 if (MONGO_URI) {
-    mongoose.connect(MONGO_URI).catch(err => console.error("Erro no Mongo:", err));
+    mongoose.connect(MONGO_URI).catch(err => console.error("MongoDB Error:", err));
 }
 
 const userSchema = new mongoose.Schema({
@@ -55,23 +56,6 @@ function extractDeviceId(req) {
     if (headers['device-id']) return headers['device-id'];
     return null;
 }
-
-// Skins completas formatadas para o SharedData
-const sharedSkinsList = [
-    { Id: "0", id: "0", Name: "Stumble Guy", name: "Stumble Guy", Tier: 0, tier: 0, Type: "skin", type: "skin" },
-    { Id: "1", id: "1", Name: "Skin 1", name: "Skin 1", Tier: 0, tier: 0, Type: "skin", type: "skin" },
-    { Id: "2", id: "2", Name: "Skin 2", name: "Skin 2", Tier: 0, tier: 0, Type: "skin", type: "skin" },
-    { Id: "3", id: "3", Name: "Skin 3", name: "Skin 3", Tier: 0, tier: 0, Type: "skin", type: "skin" },
-    { Id: "4", id: "4", Name: "Skin 4", name: "Skin 4", Tier: 0, tier: 0, Type: "skin", type: "skin" },
-    { Id: "5", id: "5", Name: "Skin 5", name: "Skin 5", Tier: 0, tier: 0, Type: "skin", type: "skin" },
-    { Id: "6", id: "6", Name: "Skin 6", name: "Skin 6", Tier: 0, tier: 0, Type: "skin", type: "skin" },
-    { Id: "7", id: "7", Name: "Skin 7", name: "Skin 7", Tier: 0, tier: 0, Type: "skin", type: "skin" },
-    { Id: "8", id: "8", Name: "Skin 8", name: "Skin 8", Tier: 0, tier: 0, Type: "skin", type: "skin" },
-    { Id: "9", id: "9", Name: "Skin 9", name: "Skin 9", Tier: 0, tier: 0, Type: "skin", type: "skin" }
-];
-
-const sharedSkinsMap = {};
-sharedSkinsList.forEach(s => { sharedSkinsMap[s.Id] = s; });
 
 const userOwnedSkinIds = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
@@ -136,6 +120,18 @@ function formatUserResponse(user) {
     };
 }
 
+let SharedData = null;
+const jsonPath = path.join(__dirname, 'DefaultShared.json');
+
+try {
+    if (fs.existsSync(jsonPath)) {
+        const rawData = fs.readFileSync(jsonPath, 'utf8');
+        SharedData = JSON.parse(rawData);
+    }
+} catch (err) {
+    console.error(err.message);
+}
+
 app.get('/auth', (req, res) => {
     try {
         const hash = req.query.hash;
@@ -148,107 +144,51 @@ app.get('/auth', (req, res) => {
     }
 });
 
-// Manipulador do /shared corrigido para impedir o erro do AdManager e carregar o SharedData
-const handleSharedConfig = (req, res) => {
+const handleShared = (req, res) => {
     const version = req.params.version || req.query.version || "1766";
     const type = req.params.type || req.query.type || "LIVE";
 
-    const config = {
+    if (SharedData) {
+        return res.json({
+            ...SharedData,
+            Status: "OK",
+            status: "OK",
+            Version: version,
+            version: version,
+            Type: type,
+            type: type
+        });
+    }
+
+    return res.json({
         Status: "OK",
         status: "OK",
-        RoundTime: 180,
-        round_time: 180,
-        roundTime: 180,
-        MaxPlayers: 32,
-        max_players: 32,
-        maxPlayers: 32,
-        DisableAds: true,
-        disable_ads: true,
-        disableAds: true,
-        FreeSpins: 0,
-        free_spins: 0,
-        freeSpins: 0,
         Version: version,
-        version: version,
         Type: type,
-        type: type,
-        Maintenance: false,
-        maintenance: false,
-        ForceUpdate: false,
-        force_update: false,
-        forceUpdate: false,
-        CustomPartyEnabled: true,
-        custom_party_enabled: true,
-        customPartyEnabled: true,
-
-        // Objeto exigido para o AdManager.OnSharedLoded não tomar NullReference
-        Ads: {
-            Disabled: true,
-            disabled: true,
-            Providers: [],
-            providers: []
-        },
-        ads: {
-            disabled: true,
-            providers: []
-        },
-        AdConfig: {
-            Disabled: true,
-            disabled: true
-        },
-        adConfig: {
-            disabled: true
-        },
-
-        Wheel: {
-            FreeSpins: 0,
-            free_spins: 0,
-            CostGems: 0,
-            cost_gems: 0
-        },
-        wheel: {
-            free_spins: 0,
-            cost_gems: 0
-        },
-
-        BattlePass: {
-            PassTokens: 0,
-            passTokens: 0,
-            FreePassRewards: [],
-            freePassRewards: [],
-            PremiumPassRewards: [],
-            premiumPassRewards: []
-        },
-
-        Maps: ["BlockDash", "LaserTracer", "CannonClimb", "PivotPush", "FloorFlip"],
-        maps: ["BlockDash", "LaserTracer", "CannonClimb", "PivotPush", "FloorFlip"],
-
-        // Suporte duplo para Skins (Array e Dicionário)
-        Skins: sharedSkinsList,
-        skins: sharedSkinsList,
-        SharedSkins: sharedSkinsMap,
-
+        RoundTime: 180,
+        MaxPlayers: 32,
+        DisableAds: true,
+        AdSettings: { UseTestAds: false, DisableForDevices: [] },
+        Ads: { Disabled: true, Providers: [] },
+        AdConfig: { Disabled: true },
+        BattlePass: { PassTokens: 0, FreePassRewards: [], PremiumPassRewards: [] },
+        Maps: ["BlockDash", "LaserTracer", "CannonClimb"],
+        Skins: [],
         Emotes: [],
-        emotes: [],
         Animations: [],
-        animations: [],
-        Footsteps: [],
-        footsteps: []
-    };
-
-    return res.json(config);
+        Footsteps: []
+    });
 };
 
-// Mapeia todas as URLs do /shared
-app.all('/shared*', handleSharedConfig);
+app.all('/shared*', handleShared);
 
 app.all(['/shop*', '/user/shop'], (req, res) => {
     return res.json({
-        "Status": "OK",
-        "status": "OK",
-        "Offers": [],
-        "offers": [],
-        "Items": []
+        Status: "OK",
+        status: "OK",
+        Offers: [],
+        offers: [],
+        Items: []
     });
 });
 
@@ -263,20 +203,20 @@ const handleClaimReward = async (req, res) => {
     const userData = formatUserResponse(user);
 
     return res.json({
-        "Status": "OK",
-        "status": "OK",
-        "Success": true,
-        "success": true,
-        "Reward": {
-            "Type": "Gems",
-            "type": "Gems",
-            "Amount": 0,
-            "amount": 0,
-            "Id": "gems_0",
-            "id": "gems_0"
+        Status: "OK",
+        status: "OK",
+        Success: true,
+        success: true,
+        Reward: {
+            Type: "Gems",
+            type: "Gems",
+            Amount: 0,
+            amount: 0,
+            Id: "gems_0",
+            id: "gems_0"
         },
-        "User": userData,
-        "user": userData
+        User: userData,
+        user: userData
     });
 };
 
@@ -326,8 +266,8 @@ app.all('/user/login', async (req, res) => {
 app.all('/user/news*', (req, res) => {
     return res.json([
         {
-            Header: "STUMBLE-ZESTY ON!",
-            Message: "Conectado com sucesso na versão 1766.",
+            Header: "STUMBLE-ZESTY",
+            Message: "OK",
             TimeStamp: "2024-01-01 12:00:00"
         }
     ]);
@@ -359,5 +299,5 @@ app.use(async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Servidor Stumble-Zesty v1766 rodando na porta ${PORT}`);
+    console.log(`Server running on port ${PORT}`);
 });
