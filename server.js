@@ -55,12 +55,21 @@ function extractDeviceId(req) {
     return null;
 }
 
-// Lista padrão de IDs de skins básicas para registrar no SharedData do jogo
-const defaultSkinsList = [
-    { id: "0", tier: 0 }, { id: "1", tier: 0 }, { id: "2", tier: 0 },
-    { id: "3", tier: 0 }, { id: "4", tier: 0 }, { id: "5", tier: 0 },
-    { id: "6", tier: 0 }, { id: "7", tier: 0 }, { id: "8", tier: 0 }, { id: "9", tier: 0 }
+// Estrutura completa de skins para a v0.33 não dar NullReferenceException em GetSharedSkin
+const fullSkinsList = [
+    { id: "0", name: "Stumble Guy", tier: 0, type: "skin" },
+    { id: "1", name: "Skin 1", tier: 0, type: "skin" },
+    { id: "2", name: "Skin 2", tier: 0, type: "skin" },
+    { id: "3", name: "Skin 3", tier: 0, type: "skin" },
+    { id: "4", name: "Skin 4", tier: 0, type: "skin" },
+    { id: "5", name: "Skin 5", tier: 0, type: "skin" },
+    { id: "6", name: "Skin 6", tier: 0, type: "skin" },
+    { id: "7", name: "Skin 7", tier: 0, type: "skin" },
+    { id: "8", name: "Skin 8", tier: 0, type: "skin" },
+    { id: "9", name: "Skin 9", tier: 0, type: "skin" }
 ];
+
+const skinIds = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
 function formatUserResponse(user) {
     const userId = user.UserId || 1;
@@ -81,6 +90,8 @@ function formatUserResponse(user) {
         name: username,
         Country: "US",
         country: "US",
+        Region: "USE",
+        region: "USE",
         Gems: gems,
         gems: gems,
         Tokens: tokens,
@@ -99,7 +110,6 @@ function formatUserResponse(user) {
         FreeNameChange: true,
         freeNameChange: true,
 
-        // Balances estruturados para a classe User C#
         Balances: [
             { Name: "Gems", Amount: gems },
             { Name: "Tokens", Amount: tokens }
@@ -109,8 +119,10 @@ function formatUserResponse(user) {
             { Name: "Tokens", Amount: tokens }
         ],
 
-        Skins: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
-        skins: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
+        Skins: skinIds,
+        skins: skinIds,
+        SkinVariants: [],
+        skinVariants: [],
         Emotes: ["emote_happy", "emote_cry", "emote_hi"],
         emotes: ["emote_happy", "emote_cry", "emote_hi"],
         Animations: ["animation1"],
@@ -136,7 +148,7 @@ const handleSharedConfig = (req, res) => {
     const version = req.params.version || req.query.version || "0.33";
     const type = req.params.type || req.query.type || "LIVE";
 
-    return res.json({
+    const sharedPayload = {
         "round_time": 180,
         "roundTime": 180,
         "max_players": 32,
@@ -170,9 +182,20 @@ const handleSharedConfig = (req, res) => {
         "maps": ["BlockDash", "LaserTracer", "CannonClimb", "PivotPush", "FloorFlip"],
         "Maps": ["BlockDash", "LaserTracer", "CannonClimb", "PivotPush", "FloorFlip"],
         
-        // Estruturas de skins necessárias para não dar NullReferenceException no SharedData do Unity
-        "skins": defaultSkinsList,
-        "Skins": defaultSkinsList
+        "skins": fullSkinsList,
+        "Skins": fullSkinsList,
+        "emotes": [],
+        "Emotes": [],
+        "animations": [],
+        "Animations": [],
+        "footsteps": [],
+        "Footsteps": []
+    };
+
+    return res.json({
+        ...sharedPayload,
+        "sharedData": sharedPayload,
+        "SharedData": sharedPayload
     });
 };
 
